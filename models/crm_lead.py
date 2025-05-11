@@ -22,6 +22,11 @@ class CrmLead(models.Model):
     visita_validation_file = fields.Binary(string="Archivo de validación de visita")
     visita_validation_filename = fields.Char(string="Nombre del archivo de validación de visita")
 
+    pickup_location = fields.Char(
+        string="Ubicación de recolección",
+        help="Dirección exacta (planta, almacén, muelle, etc.) donde se retira el residuo."
+    )
+
     @api.depends('requiere_visita', 'visita_validation_file')
     def _compute_show_visita_alert(self):
         for record in self:
