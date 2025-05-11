@@ -9,6 +9,17 @@
                 <page string="Información del Servicio" name="service_info">
                     <group>
                         <field name="service_frequency"/>
+                        <field name="residue_new"/>
+                        <div invisible="not residue_new">
+                            <p style="color:#d9534f; font-weight:bold;">
+                                ⚠️ Solicitar muestra al cliente.
+                            </p>
+                            <button name="message_post" type="object"
+                                    string="Adjuntar resultados de muestra"
+                                    class="btn btn-secondary"
+                                    context="{'default_message_type':'comment', 'default_subtype_id': ref('mail.mt_note')}"
+                                    icon="fa-paperclip"/>
+                        </div>
                     </group>
                     <group>
                         <field name="residue_line_ids">
@@ -21,14 +32,6 @@
                     </group>
                 </page>
             </xpath>
-
-            <!-- Agregar aquí el nuevo campo booleano -->
-            <xpath expr="//sheet" position="before">
-                <group>
-                    <field name="residue_new"/>
-                </group>
-            </xpath>
-
         </field>
     </record>
 </odoo>

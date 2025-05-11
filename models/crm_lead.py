@@ -6,7 +6,11 @@ class CrmLead(models.Model):
     service_frequency = fields.Char(string="Frecuencia del Servicio")
     residue_line_ids = fields.One2many('crm.lead.residue', 'lead_id', string="Listado de Residuos")
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
+    show_sample_alert = fields.Boolean(string="Mostrar alerta de muestra", compute="_compute_show_sample_alert")
 
+    def _compute_show_sample_alert(self):
+        for lead in self:
+            lead.show_sample_alert = lead.residue_new
 
 class CrmLeadResidue(models.Model):
     _name = 'crm.lead.residue'
