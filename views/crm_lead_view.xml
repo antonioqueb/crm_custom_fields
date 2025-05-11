@@ -15,11 +15,11 @@
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
                             <field name="sample_result_ids">
-                                <tree editable="bottom">
+                                <list editable="bottom">
                                     <field name="name"/>
-                                    <field name="file" filename="filename" widget="pdf_viewer"/>
+                                    <field name="file" filename="filename"/>
                                     <field name="upload_date" readonly="1"/>
-                                </tree>
+                                </list>
                                 <form>
                                     <group>
                                         <field name="name"/>
