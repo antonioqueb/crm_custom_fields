@@ -8,6 +8,7 @@
             <xpath expr="//page[@name='extra']" position="after">
                 <page string="Información del Servicio" name="service_info">
                     <group>
+                        <field name="pickup_location"/>
                         <field name="requiere_visita"/>
                         <field name="service_frequency"/>
                         <field name="residue_new"/>
@@ -22,6 +23,7 @@
                         <field name="residue_line_ids">
                             <list editable="bottom">
                                 <field name="name"/>
+                                <field name="residue_type"/>
                                 <field name="volume"/>
                                 <field name="uom_id" options="{'no_create': True}"/>
                             </list>

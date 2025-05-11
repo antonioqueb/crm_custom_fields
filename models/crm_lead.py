@@ -10,6 +10,10 @@ class CrmLead(models.Model):
     sample_result_file = fields.Binary(string="Archivo de Resultados de Muestra")
     sample_result_filename = fields.Char(string="Nombre del Archivo de Resultados de Muestra")
     requiere_visita = fields.Boolean(string="Requiere visita presencial")
+    pickup_location = fields.Char(
+        string="Ubicación de recolección",
+        help="Dirección exacta (planta, almacén, muelle, etc.) donde se retira el residuo."
+    )
 
 
     @api.depends('residue_new')
@@ -25,3 +29,11 @@ class CrmLeadResidue(models.Model):
     name = fields.Char(string="Residuo", required=True)
     volume = fields.Float(string="Volumen", required=True)
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida", required=True)
+
+    residue_type = fields.Selection(
+        selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
+        string="Tipo de residuo",
+        required=True,
+        default='rsu',
+        help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
+    )
