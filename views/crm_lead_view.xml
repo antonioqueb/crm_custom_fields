@@ -21,6 +21,14 @@
                     </group>
                 </page>
             </xpath>
+
+            <!-- Agregar aquí el nuevo campo booleano -->
+            <xpath expr="//sheet" position="before">
+                <group>
+                    <field name="residue_new"/>
+                </group>
+            </xpath>
+
         </field>
     </record>
 </odoo>
