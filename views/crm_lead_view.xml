@@ -8,27 +8,32 @@
             <xpath expr="//page[@name='extra']" position="after">
                 <page string="Información del Servicio" name="service_info">
                     <group>
-                        <field name="pickup_location"/>
-                        <field name="requiere_visita"/>
-                        <field name="service_frequency"/>
-                        <field name="residue_new"/>
-                        
-                        <!-- Alerta y subida de archivo para "residuo nuevo" -->
-                        <div invisible="not show_sample_alert">
-                            <p style="color:#d9534f; font-weight:bold;">
-                                ⚠️ Solicitar muestra al cliente.
-                            </p>
-                            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
-                        </div>
+                        <group>
+                            <field name="pickup_location"/>
+                            <field name="service_frequency"/>
+                        </group>
 
-                        <!-- NUEVO: Alerta y subida de archivo para "requiere visita" -->
-                        <div invisible="not show_visita_alert">
-                            <p style="color:#d9534f; font-weight:bold;">
-                                ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
-                            </p>
-                            <field name="visita_validation_file" filename="visita_validation_filename" widget="pdf_viewer"/>
-                        </div>
+                        <group>
+                            <field name="requiere_visita"/>
+                            <div invisible="not show_visita_alert" class="oe_edit_only">
+                                <p style="color:#d9534f; font-weight:bold;">
+                                    ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
+                                </p>
+                                <field name="visita_validation_file" filename="visita_validation_filename" widget="pdf_viewer"/>
+                            </div>
+                        </group>
+
+                        <group>
+                            <field name="residue_new"/>
+                            <div invisible="not show_sample_alert" class="oe_edit_only">
+                                <p style="color:#d9534f; font-weight:bold;">
+                                    ⚠️ Solicitar muestra al cliente.
+                                </p>
+                                <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
+                            </div>
+                        </group>
                     </group>
+
 
                     <group>
                         <field name="residue_line_ids">
