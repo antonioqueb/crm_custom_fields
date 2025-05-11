@@ -7,6 +7,8 @@ class CrmLead(models.Model):
     residue_line_ids = fields.One2many('crm.lead.residue', 'lead_id', string="Listado de Residuos")
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
     show_sample_alert = fields.Boolean(string="Mostrar alerta de muestra", compute="_compute_show_sample_alert")
+    sample_result_file = fields.Binary(string="Archivo de Resultados de Muestra")
+    sample_result_filename = fields.Char(string="Nombre del Archivo de Resultados de Muestra")
 
     @api.depends('residue_new')
     def _compute_show_sample_alert(self):
