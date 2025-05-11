@@ -6,8 +6,15 @@ class CrmLead(models.Model):
     service_frequency = fields.Char(string="Frecuencia del Servicio")
     residue_line_ids = fields.One2many('crm.lead.residue', 'lead_id', string="Listado de Residuos")
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
-    show_sample_alert = fields.Boolean(string="Mostrar alerta de muestra", compute="_compute_show_sample_alert")
-    sample_result_ids = fields.One2many('crm.lead.sample.result', 'lead_id', string="Resultados de Muestras")
+    show_sample_alert = fields.Boolean(
+        string="Mostrar alerta de muestra",
+        compute="_compute_show_sample_alert"
+    )
+    sample_result_ids = fields.One2many(
+        'crm.lead.sample.result',
+        'lead_id',
+        string="Resultados de Muestras"
+    )
 
     @api.depends('residue_new')
     def _compute_show_sample_alert(self):
@@ -31,4 +38,7 @@ class CrmLeadSampleResult(models.Model):
     name = fields.Char(string="Descripción del archivo", required=True)
     file = fields.Binary(string="Archivo", required=True)
     filename = fields.Char(string="Nombre del Archivo")
-    upload_date = fields.Datetime(string="Fecha de Subida", default=fields.Datetime.now)
+    upload_date = fields.Datetime(
+        string="Fecha de Subida",
+        default=fields.Datetime.now
+    )
