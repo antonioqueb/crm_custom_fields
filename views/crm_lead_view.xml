@@ -14,19 +14,7 @@
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
-                            <field name="sample_result_ids">
-                                <list editable="bottom">
-                                    <field name="name"/>
-                                    <field name="file" filename="filename"/>
-                                    <field name="upload_date" readonly="1"/>
-                                </list>
-                                <form>
-                                    <group>
-                                        <field name="name"/>
-                                        <field name="file" filename="filename" widget="pdf_viewer"/>
-                                    </group>
-                                </form>
-                            </field>
+                            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
                         </div>
                     </group>
                     <group>
