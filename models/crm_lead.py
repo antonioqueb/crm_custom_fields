@@ -32,6 +32,12 @@ class CrmLead(models.Model):
         for record in self:
             record.show_visita_alert = record.requiere_visita and not record.visita_validation_file
 
+    @api.depends('residue_new', 'sample_result_file')
+    def _compute_show_sample_alert(self):
+        for record in self:
+            record.show_sample_alert = record.residue_new and not record.sample_result_file
+
+
 
 class CrmLeadResidue(models.Model):
     _name = 'crm.lead.residue'
