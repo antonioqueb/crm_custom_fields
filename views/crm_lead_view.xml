@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_crm_lead_form_custom_fields" model="ir.ui.view">
+        <field name="name">crm.lead.form.custom.fields</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='extra']" position="after">
+                <page string="Información del Servicio" name="service_info">
+                    <group>
+                        <field name="service_frequency"/>
+                    </group>
+                    <group>
+                        <field name="residue_line_ids">
+                            <list editable="bottom">
+                                <field name="name"/>
+                                <field name="volume"/>
+                                <field name="uom_id" options="{'no_create': True}"/>
+                            </list>
+                        </field>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
