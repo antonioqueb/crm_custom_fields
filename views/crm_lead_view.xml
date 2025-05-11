@@ -14,18 +14,19 @@
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
-                            <button name="%(mail.action_send_mail)d" 
-                                    string="Adjuntar resultados de muestra" 
+                            <button name="%(mail.action_view_mail_composer)d"
+                                    string="Adjuntar resultados de muestra"
                                     type="action"
                                     class="btn btn-secondary"
                                     icon="fa-paperclip"
                                     context="{
-                                        'default_res_id': active_id,
                                         'default_model': 'crm.lead',
-                                        'default_use_template': False,
+                                        'default_res_id': active_id,
                                         'default_message_type': 'comment',
                                         'default_attachment_ids': [],
-                                        'default_subject': 'Resultados de muestra'
+                                        'default_subject': 'Resultados de muestra',
+                                        'default_is_log': True,
+                                        'force_email': False
                                     }"/>
                         </div>
                     </group>
