@@ -1,8 +1,10 @@
+# models/crm_lead.py
 from odoo import models, fields, api
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
 
+    requiere_visita = fields.Boolean(string="Requiere visita presencial")
     service_frequency = fields.Char(string="Frecuencia del Servicio")
     residue_line_ids = fields.One2many('crm.lead.residue', 'lead_id', string="Listado de Residuos")
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
