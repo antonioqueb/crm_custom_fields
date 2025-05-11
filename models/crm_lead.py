@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
@@ -8,6 +8,7 @@ class CrmLead(models.Model):
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
     show_sample_alert = fields.Boolean(string="Mostrar alerta de muestra", compute="_compute_show_sample_alert")
 
+    @api.depends('residue_new')
     def _compute_show_sample_alert(self):
         for lead in self:
             lead.show_sample_alert = lead.residue_new

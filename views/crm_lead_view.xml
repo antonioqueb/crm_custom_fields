@@ -10,14 +10,14 @@
                     <group>
                         <field name="service_frequency"/>
                         <field name="residue_new"/>
-                        <div invisible="not residue_new">
+                        <div invisible="not show_sample_alert">
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
                             <button name="message_post" type="object"
                                     string="Adjuntar resultados de muestra"
                                     class="btn btn-secondary"
-                                    context="{'default_message_type':'comment', 'default_subtype_id': ref('mail.mt_note')}"
+                                    context="{'default_message_type':'comment'}"
                                     icon="fa-paperclip"/>
                         </div>
                     </group>
