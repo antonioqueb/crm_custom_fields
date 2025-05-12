@@ -27,7 +27,8 @@
                         <field name="visita_validation_file"
                                filename="visita_validation_filename"
                                widget="pdf_viewer"
-                               invisible="not requiere_visita"/>
+                               invisible="not requiere_visita"
+                               options="{'force_save': True}"/>
                     </group>
 
                     <!-- Grupo para muestra de residuo nuevo -->
@@ -43,7 +44,8 @@
                         <field name="sample_result_file"
                                filename="sample_result_filename"
                                widget="pdf_viewer"
-                               invisible="not residue_new"/>
+                               invisible="not residue_new"
+                               options="{'force_save': True}"/>
                     </group>
 
                     <!-- Detalle de residuos cotizados -->
