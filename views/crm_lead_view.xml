@@ -5,46 +5,57 @@
         <field name="model">crm.lead</field>
         <field name="inherit_id" ref="crm.crm_lead_view_form"/>
         <field name="arch" type="xml">
+
+            <!-- Insertamos una nueva pestaña después de la original “extra” -->
             <xpath expr="//page[@name='extra']" position="after">
                 <page string="Información del Servicio" name="service_info">
+
+                    <!-- Datos generales del servicio -->
                     <group>
-                        <group>
-                            <field name="pickup_location"/>
-                            <field name="service_frequency"/>
-                        </group>
-
-                        <group>
-                            <field name="requiere_visita"/>
-                            <div invisible="not show_visita_alert" class="oe_edit_only">
-                                <p style="color:#d9534f; font-weight:bold;">
-                                    ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
-                                </p>
-                                <field name="visita_validation_file" filename="visita_validation_filename" widget="pdf_viewer"/>
-                            </div>
-                        </group>
-
-                        <group>
-                            <field name="residue_new"/>
-                            <div invisible="not show_sample_alert" class="oe_edit_only">
-                                <p style="color:#d9534f; font-weight:bold;">
-                                    ⚠️ Solicitar muestra al cliente.
-                                </p>
-                                <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
-                            </div>
-                        </group>
+                        <field name="pickup_location"/>
+                        <field name="service_frequency"/>
                     </group>
 
+                    <!-- 1. Validación de visita (bloque completo) -->
+                    <group>
+                        <field name="requiere_visita"/>
+                        <div attrs="{'invisible': [('show_visita_alert', '=', False)]}">
+                            <p style="color:#d9534f; font-weight:bold;">
+                                ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
+                            </p>
+                        </div>
+                        <field name="visita_validation_file"
+                               filename="visita_validation_filename"
+                               widget="pdf_viewer"
+                               attrs="{'invisible': [('show_visita_alert', '=', False)]}"/>
+                    </group>
 
+                    <!-- 2. Muestra de residuo nuevo (inmediatamente debajo) -->
+                    <group>
+                        <field name="residue_new"/>
+                        <div attrs="{'invisible': [('show_sample_alert', '=', False)]}">
+                            <p style="color:#d9534f; font-weight:bold;">
+                                ⚠️ Solicitar muestra al cliente.
+                            </p>
+                        </div>
+                        <field name="sample_result_file"
+                               filename="sample_result_filename"
+                               widget="pdf_viewer"
+                               attrs="{'invisible': [('show_sample_alert', '=', False)]}"/>
+                    </group>
+
+                    <!-- Detalle de residuos y volúmenes -->
                     <group>
                         <field name="residue_line_ids">
-                            <list editable="bottom">
+                            <tree editable="bottom">
                                 <field name="name"/>
                                 <field name="residue_type"/>
                                 <field name="volume"/>
                                 <field name="uom_id" options="{'no_create': True}"/>
-                            </list>
+                            </tree>
                         </field>
                     </group>
+
                 </page>
             </xpath>
         </field>
