@@ -5,21 +5,39 @@ class CrmLead(models.Model):
 
     service_frequency = fields.Char(string="Frecuencia del Servicio")
     residue_line_ids = fields.One2many('crm.lead.residue', 'lead_id', string="Listado de Residuos")
+    
     residue_new = fields.Boolean(string="¿Residuo Nuevo?")
-    show_sample_alert = fields.Boolean(string="Mostrar alerta de muestra", compute="_compute_show_sample_alert")
+    show_sample_alert = fields.Boolean(
+        string="Mostrar alerta de muestra",
+        compute="_compute_show_sample_alert",
+        store=True
+    )
     sample_result_file = fields.Binary(string="Archivo de Resultados de Muestra")
     sample_result_filename = fields.Char(string="Nombre del Archivo de Resultados de Muestra")
+    
     requiere_visita = fields.Boolean(string="Requiere visita presencial")
+    show_visita_alert = fields.Boolean(
+        string="Mostrar alerta visita",
+        compute="_compute_show_visita_alert",
+        store=True
+    )
+    visita_validation_file = fields.Binary(string="Archivo de validación de visita")
+    visita_validation_filename = fields.Char(string="Nombre del archivo de validación de visita")
+
     pickup_location = fields.Char(
         string="Ubicación de recolección",
         help="Dirección exacta (planta, almacén, muelle, etc.) donde se retira el residuo."
     )
 
-
-    @api.depends('residue_new')
+    @api.depends('residue_new', 'sample_result_file')
     def _compute_show_sample_alert(self):
-        for lead in self:
-            lead.show_sample_alert = lead.residue_new
+        for record in self:
+            record.show_sample_alert = record.residue_new and not bool(record.sample_result_file)
+
+    @api.depends('requiere_visita', 'visita_validation_file')
+    def _compute_show_visita_alert(self):
+        for record in self:
+            record.show_visita_alert = record.requiere_visita and not bool(record.visita_validation_file)
 
 class CrmLeadResidue(models.Model):
     _name = 'crm.lead.residue'
@@ -29,7 +47,6 @@ class CrmLeadResidue(models.Model):
     name = fields.Char(string="Residuo", required=True)
     volume = fields.Float(string="Volumen", required=True)
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida", required=True)
-
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         string="Tipo de residuo",

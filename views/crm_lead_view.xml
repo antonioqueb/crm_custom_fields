@@ -7,18 +7,46 @@
         <field name="arch" type="xml">
             <xpath expr="//page[@name='extra']" position="after">
                 <page string="Información del Servicio" name="service_info">
+
+                    <!-- Grupo principal de información -->
                     <group>
                         <field name="pickup_location"/>
-                        <field name="requiere_visita"/>
                         <field name="service_frequency"/>
+                    </group>
+
+                    <!-- Grupo para la validación de visita presencial -->
+                    <group>
+                        <field name="requiere_visita"/>
+
+                        <div invisible="not show_visita_alert">
+                            <p style="color:#d9534f; font-weight:bold;">
+                                ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
+                            </p>
+                        </div>
+
+                        <field name="visita_validation_file"
+                               filename="visita_validation_filename"
+                               widget="pdf_viewer"
+                               invisible="not requiere_visita"/>
+                    </group>
+
+                    <!-- Grupo para muestra de residuo nuevo -->
+                    <group>
                         <field name="residue_new"/>
+
                         <div invisible="not show_sample_alert">
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
-                            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
                         </div>
+
+                        <field name="sample_result_file"
+                               filename="sample_result_filename"
+                               widget="pdf_viewer"
+                               invisible="not residue_new"/>
                     </group>
+
+                    <!-- Detalle de residuos cotizados -->
                     <group>
                         <field name="residue_line_ids">
                             <list editable="bottom">
@@ -29,6 +57,7 @@
                             </list>
                         </field>
                     </group>
+
                 </page>
             </xpath>
         </field>
