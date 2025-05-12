@@ -27,7 +27,7 @@
                         <field name="visita_validation_file"
                                filename="visita_validation_filename"
                                widget="pdf_viewer"
-                               invisible="not is_visita_file_loaded"
+                               invisible="not requiere_visita"
                                options="{'force_save': True}"/>
                     </group>
 
@@ -44,7 +44,7 @@
                         <field name="sample_result_file"
                                filename="sample_result_filename"
                                widget="pdf_viewer"
-                               invisible="not is_sample_file_loaded"
+                               invisible="not residue_new"
                                options="{'force_save': True}"/>
                     </group>
 
