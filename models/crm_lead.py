@@ -49,7 +49,7 @@ class CrmLeadResidue(models.Model):
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida", required=True)
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
-        string="Tipo de residuo",
+        string="Tipo de manejo",
         required=True,
         default='rsu',
         help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
