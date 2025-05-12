@@ -19,7 +19,7 @@
                     <!-- 1. Validación de visita (bloque completo) -->
                     <group>
                         <field name="requiere_visita"/>
-                        <div attrs="{'invisible': [('show_visita_alert', '=', False)]}">
+                        <div invisible="not show_visita_alert">
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
                             </p>
@@ -27,13 +27,13 @@
                         <field name="visita_validation_file"
                                filename="visita_validation_filename"
                                widget="pdf_viewer"
-                               attrs="{'invisible': [('show_visita_alert', '=', False)]}"/>
+                               invisible="not show_visita_alert"/>
                     </group>
 
                     <!-- 2. Muestra de residuo nuevo (inmediatamente debajo) -->
                     <group>
                         <field name="residue_new"/>
-                        <div attrs="{'invisible': [('show_sample_alert', '=', False)]}">
+                        <div invisible="not show_sample_alert">
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
@@ -41,7 +41,7 @@
                         <field name="sample_result_file"
                                filename="sample_result_filename"
                                widget="pdf_viewer"
-                               attrs="{'invisible': [('show_sample_alert', '=', False)]}"/>
+                               invisible="not show_sample_alert"/>
                     </group>
 
                     <!-- Detalle de residuos y volúmenes -->
