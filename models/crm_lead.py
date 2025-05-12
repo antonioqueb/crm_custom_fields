@@ -47,7 +47,6 @@ class CrmLeadResidue(models.Model):
     name = fields.Char(string="Residuo", required=True)
     volume = fields.Float(string="Volumen", required=True)
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida", required=True)
-
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         string="Tipo de residuo",
