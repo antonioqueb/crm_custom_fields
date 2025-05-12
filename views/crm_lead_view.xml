@@ -5,46 +5,20 @@
         <field name="model">crm.lead</field>
         <field name="inherit_id" ref="crm.crm_lead_view_form"/>
         <field name="arch" type="xml">
-
-            <!-- Insertamos una nueva pestaña después de la original “extra” -->
             <xpath expr="//page[@name='extra']" position="after">
                 <page string="Información del Servicio" name="service_info">
-
-                    <!-- Datos generales del servicio -->
                     <group>
                         <field name="pickup_location"/>
-                        <field name="service_frequency"/>
-                    </group>
-
-                    <!-- 1. Validación de visita (bloque completo) -->
-                    <group>
                         <field name="requiere_visita"/>
-                        <div invisible="not show_visita_alert">
-                            <p style="color:#d9534f; font-weight:bold;">
-                                ⚠️ Se requiere validar residuos y volúmenes y subir el informe.
-                            </p>
-                        </div>
-                        <field name="visita_validation_file"
-                               filename="visita_validation_filename"
-                               widget="pdf_viewer"
-                               invisible="not show_visita_alert"/>
-                    </group>
-
-                    <!-- 2. Muestra de residuo nuevo (inmediatamente debajo) -->
-                    <group>
+                        <field name="service_frequency"/>
                         <field name="residue_new"/>
                         <div invisible="not show_sample_alert">
                             <p style="color:#d9534f; font-weight:bold;">
                                 ⚠️ Solicitar muestra al cliente.
                             </p>
+                            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer"/>
                         </div>
-                        <field name="sample_result_file"
-                               filename="sample_result_filename"
-                               widget="pdf_viewer"
-                               invisible="not show_sample_alert"/>
                     </group>
-
-                    <!-- Detalle de residuos y volúmenes -->
                     <group>
                         <field name="residue_line_ids">
                             <list editable="bottom">
@@ -55,7 +29,6 @@
                             </list>
                         </field>
                     </group>
-
                 </page>
             </xpath>
         </field>
