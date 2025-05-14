@@ -54,3 +54,12 @@ class CrmLeadResidue(models.Model):
         default='rsu',
         help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
     )
+
+        # NUEVAS COLUMNAS CRETIBM
+    c = fields.Boolean(string="C")
+    r = fields.Boolean(string="R")
+    e = fields.Boolean(string="E")
+    t = fields.Boolean(string="T")
+    i = fields.Boolean(string="I")
+    b = fields.Boolean(string="B")
+    m = fields.Boolean(string="M")
