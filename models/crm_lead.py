@@ -55,11 +55,17 @@ class CrmLeadResidue(models.Model):
         help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
     )
 
-        # NUEVAS COLUMNAS CRETIBM
-    c = fields.Boolean(string="C")
-    r = fields.Boolean(string="R")
-    e = fields.Boolean(string="E")
-    t = fields.Boolean(string="T")
-    i = fields.Boolean(string="I")
-    b = fields.Boolean(string="B")
-    m = fields.Boolean(string="M")
+    plan_manejo = fields.Selection(
+        selection=[
+            ('reciclaje', 'Reciclaje'),
+            ('coprocesamiento', 'Co-procesamiento'),
+            ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
+            ('tratamiento_biologico', 'Tratamiento Biológico'),
+            ('tratamiento_termico', 'Tratamiento Térmico (Incineración)'),
+            ('confinamiento_controlado', 'Confinamiento Controlado'),
+            ('reutilizacion', 'Reutilización'),
+            ('destruccion_fiscal', 'Destrucción Fiscal'),
+        ],
+        string="Plan de Manejo",
+        help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
+    )

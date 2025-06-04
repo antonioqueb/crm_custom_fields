@@ -53,13 +53,7 @@
                         <field name="residue_line_ids">
                             <list editable="bottom">
                                 <field name="name"/>
-                                <field name="c"/>
-                                <field name="r"/>
-                                <field name="e"/>
-                                <field name="t"/>
-                                <field name="i"/>
-                                <field name="b"/>
-                                <field name="m"/>
+                                <field name="plan_manejo"/>
                                 <field name="residue_type"/>
                                 <field name="volume"/>
                                 <field name="uom_id" options="{'no_create': True}"/>
