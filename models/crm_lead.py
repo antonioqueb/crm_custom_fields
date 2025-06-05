@@ -41,28 +41,6 @@ class CrmLead(models.Model):
         for record in self:
             record.show_visita_alert = record.requiere_visita and not bool(record.visita_validation_file)
 
-    def action_create_services_from_residues(self):
-        """Crear productos de tipo servicio desde los residuos cotizados"""
-        if not self.residue_line_ids:
-            raise ValidationError("No hay residuos para crear servicios.")
-        
-        created_services = []
-        for residue in self.residue_line_ids:
-            if not residue.product_id:  # Solo crear si no existe producto asociado
-                service = self._create_service_from_residue(residue)
-                residue.product_id = service.id
-                created_services.append(service)
-        
-        if created_services:
-            return {
-                'type': 'ir.actions.act_window',
-                'name': 'Servicios Creados',
-                'res_model': 'product.product',
-                'view_mode': 'tree,form',
-                'domain': [('id', 'in', [s.id for s in created_services])],
-                'target': 'current',
-            }
-
     def _create_service_from_residue(self, residue):
         """Crear un producto de tipo servicio desde un residue"""
         # Obtener categoría para servicios de residuos (o crear una)
@@ -80,11 +58,10 @@ class CrmLead(models.Model):
         
         return self.env['product.product'].create({
             'name': service_name,
-            'type': 'service',  # Tipo servicio
+            'type': 'service',
             'categ_id': category.id,
             'sale_ok': True,
             'purchase_ok': False,
-            'detailed_type': 'service',
             'description_sale': f"""Servicio de manejo de residuo: {residue.name}
 Plan de manejo: {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}
 Tipo de residuo: {dict(residue._fields['residue_type'].selection).get(residue.residue_type, '')}
@@ -124,26 +101,50 @@ class CrmLeadResidue(models.Model):
         help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
     )
     
-    # Nuevo campo para vincular con el producto/servicio creado
     product_id = fields.Many2one(
         'product.product', 
         string="Servicio Asociado",
-        help="Producto/servicio creado a partir de este residuo"
+        readonly=True,
+        help="Producto/servicio creado automáticamente a partir de este residuo"
     )
     
-    def action_create_service(self):
-        """Crear servicio individual desde este residue"""
-        if self.product_id:
-            raise ValidationError(f"Ya existe un servicio asociado: {self.product_id.name}")
-        
-        service = self.lead_id._create_service_from_residue(self)
-        self.product_id = service.id
-        
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Servicio Creado',
-            'res_model': 'product.product',
-            'res_id': service.id,
-            'view_mode': 'form',
-            'target': 'current',
-        }
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Crear servicios automáticamente al crear residuos"""
+        records = super().create(vals_list)
+        for record in records:
+            if record.name and record.plan_manejo and not record.product_id:
+                try:
+                    service = record.lead_id._create_service_from_residue(record)
+                    record.product_id = service.id
+                except Exception:
+                    # Si falla la creación del servicio, continúa sin bloquear
+                    pass
+        return records
+    
+    def write(self, vals):
+        """Crear o actualizar servicios al modificar residuos"""
+        result = super().write(vals)
+        for record in self:
+            # Si se modifican campos importantes y no hay servicio, crear uno
+            if ('name' in vals or 'plan_manejo' in vals) and not record.product_id:
+                if record.name and record.plan_manejo:
+                    try:
+                        service = record.lead_id._create_service_from_residue(record)
+                        record.product_id = service.id
+                    except Exception:
+                        pass
+            # Si ya existe servicio, actualizar su nombre
+            elif record.product_id and ('name' in vals or 'plan_manejo' in vals):
+                try:
+                    service_name = f"Servicio de {record.name} - {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}"
+                    record.product_id.write({
+                        'name': service_name,
+                        'description_sale': f"""Servicio de manejo de residuo: {record.name}
+Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}
+Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '')}
+Volumen: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
+                    })
+                except Exception:
+                    pass
+        return result

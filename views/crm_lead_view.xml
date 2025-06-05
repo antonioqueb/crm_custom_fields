@@ -50,15 +50,6 @@
 
                     <!-- Detalle de residuos cotizados -->
                     <group>
-                        <div class="oe_button_box" name="button_box_services">
-                            <button name="action_create_services_from_residues" 
-                                    type="object" 
-                                    class="oe_stat_button btn-primary"
-                                    string="Crear Servicios"
-                                    icon="fa-cogs"
-                                    help="Crear productos de tipo servicio desde los residuos cotizados"/>
-                        </div>
-                        
                         <field name="residue_line_ids">
                             <list editable="bottom">
                                 <field name="name"/>
@@ -67,11 +58,6 @@
                                 <field name="volume"/>
                                 <field name="uom_id" options="{'no_create': True}"/>
                                 <field name="product_id" readonly="1"/>
-                                <button name="action_create_service" 
-                                        type="object" 
-                                        icon="fa-plus-circle" 
-                                        title="Crear servicio individual"
-                                        invisible="product_id"/>
                                 <button name="%(product.product_template_action)d" 
                                         type="action" 
                                         icon="fa-external-link" 
