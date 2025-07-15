@@ -73,7 +73,9 @@
                                    string="Tipo"/>
                             <field name="plan_manejo" 
                                    string="Plan de Manejo"/>
-                            <field name="volume" string="Volumen" placeholder="0.00"/>
+                            <field name="weight_kg" string="Peso Total (kg)" placeholder="0.00"/>
+                            <field name="volume" string="Unidades" placeholder="1"/>
+                            <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
                             <field name="uom_id" string="Unidad" options="{'no_create': True}"/>
                             <field name="product_id" string="Servicio Generado" readonly="1"/>
                             <button name="%(product.product_template_action)d"
@@ -109,9 +111,11 @@
                                     <field name="plan_manejo"/>
                                 </group>
                                 
-                                <!-- Información común - SIEMPRE EDITABLE -->
-                                <group string="Información del Residuo">
-                                    <field name="volume"/>
+                                <!-- Información de cantidades y peso - SIEMPRE EDITABLE -->
+                                <group string="Cantidades y Peso">
+                                    <field name="weight_kg" string="Peso Total (kg)" placeholder="Ejemplo: 200"/>
+                                    <field name="volume" string="Número de Unidades" placeholder="Ejemplo: 1"/>
+                                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
                                     <field name="uom_id" options="{'no_create': True}"/>
                                     <field name="product_id" readonly="1"/>
                                 </group>

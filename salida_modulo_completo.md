@@ -140,7 +140,7 @@ class CrmLead(models.Model):
             })
 
         # Crear el producto/servicio
-        service_name = f"Servicio de Recolección de {residue.name} - {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}"
+        service_name = f"Servicio Recolección de {residue.name}"
         
         return self.env['product.product'].create({
             'name': service_name,
@@ -151,7 +151,8 @@ class CrmLead(models.Model):
             'description_sale': f"""Servicio de manejo de residuo: {residue.name}
 Plan de manejo: {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}
 Tipo de residuo: {dict(residue._fields['residue_type'].selection).get(residue.residue_type, '')}
-Volumen: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
+Peso estimado: {residue.weight_kg} kg
+Unidades: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
             'default_code': f"SRV-{residue.residue_type.upper()}-{residue.id}",
         })
 
@@ -162,7 +163,22 @@ class CrmLeadResidue(models.Model):
 
     lead_id = fields.Many2one('crm.lead', string="Lead/Oportunidad", required=True, ondelete='cascade')
     name = fields.Char(string="Residuo")  # QUITADO required=True temporalmente
-    volume = fields.Float(string="Volumen", default=1.0)  # AGREGADO default
+    volume = fields.Float(string="Unidades", default=1.0)  # MODIFICADO: ahora es "Unidades"
+    
+    # NUEVO CAMPO PARA PESO
+    weight_kg = fields.Float(
+        string="Peso Total (kg)",
+        help="Peso total del residuo en kilogramos. Este valor se usará para el sistema de acopio."
+    )
+    
+    # CAMPO COMPUTADO PARA MOSTRAR CONVERSIÓN
+    weight_per_unit = fields.Float(
+        string="Kg por Unidad",
+        compute="_compute_weight_per_unit",
+        store=True,
+        help="Peso promedio por unidad (kg/unidad)"
+    )
+    
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida")  # QUITADO required=True temporalmente
     
     # CAMBIO IMPORTANTE: hacer residue_type no requerido cuando se usa servicio existente
@@ -209,6 +225,23 @@ class CrmLeadResidue(models.Model):
         default=True,
         help="Marca para crear un nuevo servicio, desmarca para seleccionar uno existente"
     )
+    
+    @api.depends('volume', 'weight_kg')
+    def _compute_weight_per_unit(self):
+        """Calcular peso promedio por unidad"""
+        for record in self:
+            if record.volume and record.volume > 0:
+                record.weight_per_unit = record.weight_kg / record.volume
+            else:
+                record.weight_per_unit = 0.0
+    
+    @api.onchange('weight_kg', 'volume')
+    def _onchange_weight_calculation(self):
+        """Validar coherencia entre peso y unidades"""
+        for record in self:
+            if record.weight_kg and record.volume:
+                # Calcular automáticamente el peso por unidad
+                record.weight_per_unit = record.weight_kg / record.volume
     
     @api.onchange('create_new_service')
     def _onchange_create_new_service(self):
@@ -267,7 +300,7 @@ class CrmLeadResidue(models.Model):
                     break
     
     # AGREGAR VALIDACIÓN PERSONALIZADA
-    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id')
+    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id', 'weight_kg', 'volume')
     def _check_required_fields(self):
         """Validar campos requeridos según el modo de creación"""
         for record in self:
@@ -279,6 +312,10 @@ class CrmLeadResidue(models.Model):
                     raise ValidationError("El tipo de residuo es obligatorio cuando se crea un nuevo servicio.")
                 if not record.plan_manejo:
                     raise ValidationError("El plan de manejo es obligatorio cuando se crea un nuevo servicio.")
+                if not record.weight_kg or record.weight_kg <= 0:
+                    raise ValidationError("El peso total en kg debe ser mayor a cero.")
+                if not record.volume or record.volume <= 0:
+                    raise ValidationError("El número de unidades debe ser mayor a cero.")
             else:
                 # Si usa servicio existente, validar que haya seleccionado uno
                 if not record.existing_service_id:
@@ -318,7 +355,7 @@ class CrmLeadResidue(models.Model):
                     except Exception:
                         pass
             # Si se modifican campos importantes y es nuevo servicio
-            elif record.create_new_service and ('name' in vals or 'plan_manejo' in vals):
+            elif record.create_new_service and ('name' in vals or 'plan_manejo' in vals or 'weight_kg' in vals):
                 if not record.product_id and record.name and record.plan_manejo:
                     try:
                         service = record.lead_id._create_service_from_residue(record)
@@ -334,7 +371,8 @@ class CrmLeadResidue(models.Model):
                             'description_sale': f"""Servicio de manejo de residuo: {record.name}
 Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}
 Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '')}
-Volumen: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
+Peso estimado: {record.weight_kg} kg
+Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                         })
                     except Exception:
                         pass
@@ -485,7 +523,7 @@ class CrmLead(models.Model):
             })
 
         # Crear el producto/servicio
-        service_name = f"Servicio de Recolección de {residue.name} - {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}"
+        service_name = f"Servicio Recolección de {residue.name}"
         
         return self.env['product.product'].create({
             'name': service_name,
@@ -496,7 +534,8 @@ class CrmLead(models.Model):
             'description_sale': f"""Servicio de manejo de residuo: {residue.name}
 Plan de manejo: {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}
 Tipo de residuo: {dict(residue._fields['residue_type'].selection).get(residue.residue_type, '')}
-Volumen: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
+Peso estimado: {residue.weight_kg} kg
+Unidades: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
             'default_code': f"SRV-{residue.residue_type.upper()}-{residue.id}",
         })
 
@@ -507,7 +546,22 @@ class CrmLeadResidue(models.Model):
 
     lead_id = fields.Many2one('crm.lead', string="Lead/Oportunidad", required=True, ondelete='cascade')
     name = fields.Char(string="Residuo")  # QUITADO required=True temporalmente
-    volume = fields.Float(string="Volumen", default=1.0)  # AGREGADO default
+    volume = fields.Float(string="Unidades", default=1.0)  # MODIFICADO: ahora es "Unidades"
+    
+    # NUEVO CAMPO PARA PESO
+    weight_kg = fields.Float(
+        string="Peso Total (kg)",
+        help="Peso total del residuo en kilogramos. Este valor se usará para el sistema de acopio."
+    )
+    
+    # CAMPO COMPUTADO PARA MOSTRAR CONVERSIÓN
+    weight_per_unit = fields.Float(
+        string="Kg por Unidad",
+        compute="_compute_weight_per_unit",
+        store=True,
+        help="Peso promedio por unidad (kg/unidad)"
+    )
+    
     uom_id = fields.Many2one('uom.uom', string="Unidad de Medida")  # QUITADO required=True temporalmente
     
     # CAMBIO IMPORTANTE: hacer residue_type no requerido cuando se usa servicio existente
@@ -554,6 +608,23 @@ class CrmLeadResidue(models.Model):
         default=True,
         help="Marca para crear un nuevo servicio, desmarca para seleccionar uno existente"
     )
+    
+    @api.depends('volume', 'weight_kg')
+    def _compute_weight_per_unit(self):
+        """Calcular peso promedio por unidad"""
+        for record in self:
+            if record.volume and record.volume > 0:
+                record.weight_per_unit = record.weight_kg / record.volume
+            else:
+                record.weight_per_unit = 0.0
+    
+    @api.onchange('weight_kg', 'volume')
+    def _onchange_weight_calculation(self):
+        """Validar coherencia entre peso y unidades"""
+        for record in self:
+            if record.weight_kg and record.volume:
+                # Calcular automáticamente el peso por unidad
+                record.weight_per_unit = record.weight_kg / record.volume
     
     @api.onchange('create_new_service')
     def _onchange_create_new_service(self):
@@ -612,7 +683,7 @@ class CrmLeadResidue(models.Model):
                     break
     
     # AGREGAR VALIDACIÓN PERSONALIZADA
-    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id')
+    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id', 'weight_kg', 'volume')
     def _check_required_fields(self):
         """Validar campos requeridos según el modo de creación"""
         for record in self:
@@ -624,6 +695,10 @@ class CrmLeadResidue(models.Model):
                     raise ValidationError("El tipo de residuo es obligatorio cuando se crea un nuevo servicio.")
                 if not record.plan_manejo:
                     raise ValidationError("El plan de manejo es obligatorio cuando se crea un nuevo servicio.")
+                if not record.weight_kg or record.weight_kg <= 0:
+                    raise ValidationError("El peso total en kg debe ser mayor a cero.")
+                if not record.volume or record.volume <= 0:
+                    raise ValidationError("El número de unidades debe ser mayor a cero.")
             else:
                 # Si usa servicio existente, validar que haya seleccionado uno
                 if not record.existing_service_id:
@@ -663,7 +738,7 @@ class CrmLeadResidue(models.Model):
                     except Exception:
                         pass
             # Si se modifican campos importantes y es nuevo servicio
-            elif record.create_new_service and ('name' in vals or 'plan_manejo' in vals):
+            elif record.create_new_service and ('name' in vals or 'plan_manejo' in vals or 'weight_kg' in vals):
                 if not record.product_id and record.name and record.plan_manejo:
                     try:
                         service = record.lead_id._create_service_from_residue(record)
@@ -679,7 +754,8 @@ class CrmLeadResidue(models.Model):
                             'description_sale': f"""Servicio de manejo de residuo: {record.name}
 Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}
 Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '')}
-Volumen: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
+Peso estimado: {record.weight_kg} kg
+Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                         })
                     except Exception:
                         pass
@@ -772,7 +848,9 @@ access_crm_lead_residue_salesman_all_leads,access_crm_lead_residue_salesman_all_
                                    string="Tipo"/>
                             <field name="plan_manejo" 
                                    string="Plan de Manejo"/>
-                            <field name="volume" string="Volumen" placeholder="0.00"/>
+                            <field name="weight_kg" string="Peso Total (kg)" placeholder="0.00"/>
+                            <field name="volume" string="Unidades" placeholder="1"/>
+                            <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
                             <field name="uom_id" string="Unidad" options="{'no_create': True}"/>
                             <field name="product_id" string="Servicio Generado" readonly="1"/>
                             <button name="%(product.product_template_action)d"
@@ -808,9 +886,11 @@ access_crm_lead_residue_salesman_all_leads,access_crm_lead_residue_salesman_all_
                                     <field name="plan_manejo"/>
                                 </group>
                                 
-                                <!-- Información común - SIEMPRE EDITABLE -->
-                                <group string="Información del Residuo">
-                                    <field name="volume"/>
+                                <!-- Información de cantidades y peso - SIEMPRE EDITABLE -->
+                                <group string="Cantidades y Peso">
+                                    <field name="weight_kg" string="Peso Total (kg)" placeholder="Ejemplo: 200"/>
+                                    <field name="volume" string="Número de Unidades" placeholder="Ejemplo: 1"/>
+                                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
                                     <field name="uom_id" options="{'no_create': True}"/>
                                     <field name="product_id" readonly="1"/>
                                 </group>
