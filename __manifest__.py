@@ -4,7 +4,11 @@
     'category': 'Sales/CRM',
     'summary': 'Añade campos personalizados en oportunidades CRM.',
     'author': 'Alphaqueb Consulting',
-    'depends': ['crm', 'uom'],
+    'depends': [
+        'crm',
+        'uom',
+        'product',
+    ],
     'data': [
         'security/ir.model.access.csv',
         'views/crm_lead_view.xml',
