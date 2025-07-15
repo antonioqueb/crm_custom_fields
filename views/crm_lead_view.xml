@@ -64,21 +64,16 @@
                             <field name="create_new_service" string="Crear Nuevo"/>
                             <field name="existing_service_id" 
                                    string="Servicio Existente" 
-                                   invisible="create_new_service"
-                                   options="{'no_create': True}"/>
+                                   options="{'no_create': True}"
+                                   context="{'tree_view_ref': 'product.product_product_tree_view'}"/>
                             <field name="name" 
                                    string="Nombre del Residuo" 
-                                   invisible="not create_new_service" 
-                                   required="create_new_service"/>
+                                   placeholder="Ingrese el nombre del residuo..."/>
                             <field name="residue_type" 
-                                   string="Tipo" 
-                                   invisible="not create_new_service" 
-                                   required="create_new_service"/>
+                                   string="Tipo"/>
                             <field name="plan_manejo" 
-                                   string="Plan de Manejo" 
-                                   invisible="not create_new_service" 
-                                   required="create_new_service"/>
-                            <field name="volume" string="Volumen"/>
+                                   string="Plan de Manejo"/>
+                            <field name="volume" string="Volumen" placeholder="0.00"/>
                             <field name="uom_id" string="Unidad" options="{'no_create': True}"/>
                             <field name="product_id" string="Servicio Generado" readonly="1"/>
                             <button name="%(product.product_template_action)d"
@@ -88,6 +83,40 @@
                                     context="{'search_default_id': product_id}"
                                     invisible="not product_id"/>
                         </list>
+                        
+                        <!-- Vista de formulario para edición detallada -->
+                        <form>
+                            <group>
+                                <group string="Modo de Servicio">
+                                    <field name="create_new_service"/>
+                                </group>
+                                
+                                <!-- Selección de servicio existente -->
+                                <group string="Servicio Existente" invisible="create_new_service">
+                                    <field name="existing_service_id" 
+                                           options="{'no_create': True}"
+                                           placeholder="Buscar servicio existente..."/>
+                                    <separator string="Información extraída del servicio" colspan="2" invisible="not existing_service_id"/>
+                                    <field name="name" string="Nombre" readonly="not create_new_service" invisible="not existing_service_id"/>
+                                    <field name="residue_type" string="Tipo de Residuo" readonly="not create_new_service" invisible="not existing_service_id"/>
+                                    <field name="plan_manejo" string="Plan de Manejo" readonly="not create_new_service" invisible="not existing_service_id"/>
+                                </group>
+                                
+                                <!-- Creación de nuevo servicio -->
+                                <group string="Nuevo Servicio" invisible="not create_new_service">
+                                    <field name="name" placeholder="Nombre del residuo"/>
+                                    <field name="residue_type"/>
+                                    <field name="plan_manejo"/>
+                                </group>
+                                
+                                <!-- Información común - SIEMPRE EDITABLE -->
+                                <group string="Información del Residuo">
+                                    <field name="volume"/>
+                                    <field name="uom_id" options="{'no_create': True}"/>
+                                    <field name="product_id" readonly="1"/>
+                                </group>
+                            </group>
+                        </form>
                     </field>
                 </page>
 

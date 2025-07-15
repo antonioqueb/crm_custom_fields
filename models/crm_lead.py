@@ -149,7 +149,7 @@ class CrmLead(models.Model):
             'description_sale': f"""Servicio de manejo de residuo: {residue.name}
 Plan de manejo: {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}
 Tipo de residuo: {dict(residue._fields['residue_type'].selection).get(residue.residue_type, '')}
-Volumen: {residue.volume} {residue.uom_id.name}""",
+Volumen: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
             'default_code': f"SRV-{residue.residue_type.upper()}-{residue.id}",
         })
 
@@ -159,14 +159,15 @@ class CrmLeadResidue(models.Model):
     _description = 'Residuo cotizado'
 
     lead_id = fields.Many2one('crm.lead', string="Lead/Oportunidad", required=True, ondelete='cascade')
-    name = fields.Char(string="Residuo", required=True)
-    volume = fields.Float(string="Volumen", required=True)
-    uom_id = fields.Many2one('uom.uom', string="Unidad de Medida", required=True)
+    name = fields.Char(string="Residuo")  # QUITADO required=True temporalmente
+    volume = fields.Float(string="Volumen", default=1.0)  # AGREGADO default
+    uom_id = fields.Many2one('uom.uom', string="Unidad de Medida")  # QUITADO required=True temporalmente
+    
+    # CAMBIO IMPORTANTE: hacer residue_type no requerido cuando se usa servicio existente
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         string="Tipo de manejo",
-        required=True,
-        default='rsu',
+        default='rsu',  # MANTENER default
         help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
     )
 
@@ -192,7 +193,7 @@ class CrmLeadResidue(models.Model):
         help="Producto/servicio creado automáticamente a partir de este residuo"
     )
 
-    # NUEVO: Campo para seleccionar servicio existente
+    # Campo para seleccionar servicio existente
     existing_service_id = fields.Many2one(
         'product.product',
         string="Seleccionar Servicio Existente",
@@ -200,7 +201,7 @@ class CrmLeadResidue(models.Model):
         help="Selecciona un servicio existente en lugar de crear uno nuevo"
     )
 
-    # NUEVO: Campo para decidir si crear o seleccionar
+    # Campo para decidir si crear o seleccionar
     create_new_service = fields.Boolean(
         string="Crear Nuevo Servicio",
         default=True,
@@ -211,21 +212,75 @@ class CrmLeadResidue(models.Model):
     def _onchange_create_new_service(self):
         """Limpiar campos según la opción seleccionada"""
         if self.create_new_service:
+            # Si cambia a crear nuevo servicio, limpiar servicio existente
             self.existing_service_id = False
+            # Mantener otros campos para que el usuario pueda editarlos
         else:
-            self.name = False
-            self.plan_manejo = False
-            self.residue_type = False
+            # Si cambia a usar servicio existente, NO limpiar campos inmediatamente
+            # Los campos se actualizarán cuando seleccione un servicio
+            pass
 
     @api.onchange('existing_service_id')
     def _onchange_existing_service_id(self):
         """Actualizar información del residuo basado en el servicio seleccionado"""
         if self.existing_service_id and not self.create_new_service:
-            # Intentar extraer información del nombre del servicio
-            service_name = self.existing_service_id.name
-            self.name = service_name
-            # Copiar información básica
-            self.product_id = self.existing_service_id.id
+            # Extraer información del servicio seleccionado
+            service = self.existing_service_id
+            self.name = service.name
+            self.product_id = service.id
+            
+            # Intentar extraer información del código del producto o descripción
+            if service.default_code:
+                # Ejemplo: SRV-RSU-123 -> extraer RSU
+                parts = service.default_code.split('-')
+                if len(parts) >= 2:
+                    residue_type_map = {'RSU': 'rsu', 'RME': 'rme', 'RP': 'rp'}
+                    if parts[1] in residue_type_map:
+                        self.residue_type = residue_type_map[parts[1]]
+            
+            # Intentar extraer plan de manejo de la descripción o nombre
+            description = (service.description_sale or service.name or '').lower()
+            plan_map = {
+                'reciclaje': 'reciclaje',
+                'co-procesamiento': 'coprocesamiento', 
+                'coprocesamiento': 'coprocesamiento',
+                'físico-químico': 'tratamiento_fisicoquimico',
+                'fisicoquimico': 'tratamiento_fisicoquimico',
+                'biológico': 'tratamiento_biologico',
+                'biologico': 'tratamiento_biologico',
+                'térmico': 'tratamiento_termico',
+                'termico': 'tratamiento_termico',
+                'incineración': 'tratamiento_termico',
+                'incineracion': 'tratamiento_termico',
+                'confinamiento': 'confinamiento_controlado',
+                'reutilización': 'reutilizacion',
+                'reutilizacion': 'reutilizacion',
+                'destrucción': 'destruccion_fiscal',
+                'destruccion': 'destruccion_fiscal',
+            }
+            
+            for key, value in plan_map.items():
+                if key in description:
+                    self.plan_manejo = value
+                    break
+    
+    # AGREGAR VALIDACIÓN PERSONALIZADA
+    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id')
+    def _check_required_fields(self):
+        """Validar campos requeridos según el modo de creación"""
+        for record in self:
+            if record.create_new_service:
+                # Si crea nuevo servicio, validar campos requeridos
+                if not record.name:
+                    raise ValidationError("El nombre del residuo es obligatorio cuando se crea un nuevo servicio.")
+                if not record.residue_type:
+                    raise ValidationError("El tipo de residuo es obligatorio cuando se crea un nuevo servicio.")
+                if not record.plan_manejo:
+                    raise ValidationError("El plan de manejo es obligatorio cuando se crea un nuevo servicio.")
+            else:
+                # Si usa servicio existente, validar que haya seleccionado uno
+                if not record.existing_service_id:
+                    raise ValidationError("Debe seleccionar un servicio existente o marcar 'Crear Nuevo Servicio'.")
     
     @api.model_create_multi
     def create(self, vals_list):
