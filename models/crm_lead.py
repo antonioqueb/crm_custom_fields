@@ -138,7 +138,7 @@ class CrmLead(models.Model):
             })
 
         # Crear el producto/servicio
-        service_name = f"Servicio Recolección de {residue.name}"
+        service_name = f"{residue.name}"
         
         return self.env['product.product'].create({
             'name': service_name,
