@@ -213,7 +213,7 @@ class CrmLeadResidue(models.Model):
     existing_service_id = fields.Many2one(
         'product.product',
         string="Seleccionar Servicio Existente",
-        domain="[('type', '=', 'service')]",
+        domain=[('sale_ok', '=', True), ('type', '=', 'service')],
         help="Selecciona un servicio existente en lugar de crear uno nuevo"
     )
 
@@ -297,23 +297,15 @@ class CrmLeadResidue(models.Model):
                     self.plan_manejo = value
                     break
     
-    # AGREGAR VALIDACIÓN PERSONALIZADA
-    @api.constrains('create_new_service', 'name', 'residue_type', 'plan_manejo', 'existing_service_id', 'weight_kg', 'volume')
+    # VALIDACIÓN PERSONALIZADA RELAJADA PARA PROSPECCIÓN
+    @api.constrains('create_new_service', 'name', 'existing_service_id')
     def _check_required_fields(self):
         """Validar campos requeridos según el modo de creación"""
         for record in self:
             if record.create_new_service:
-                # Si crea nuevo servicio, validar campos requeridos
+                # En prospección, sólo obligamos nombre del residuo
                 if not record.name:
                     raise ValidationError("El nombre del residuo es obligatorio cuando se crea un nuevo servicio.")
-                if not record.residue_type:
-                    raise ValidationError("El tipo de residuo es obligatorio cuando se crea un nuevo servicio.")
-                if not record.plan_manejo:
-                    raise ValidationError("El plan de manejo es obligatorio cuando se crea un nuevo servicio.")
-                if not record.weight_kg or record.weight_kg <= 0:
-                    raise ValidationError("El peso total en kg debe ser mayor a cero.")
-                if not record.volume or record.volume <= 0:
-                    raise ValidationError("El número de unidades debe ser mayor a cero.")
             else:
                 # Si usa servicio existente, validar que haya seleccionado uno
                 if not record.existing_service_id:
@@ -321,14 +313,14 @@ class CrmLeadResidue(models.Model):
     
     @api.model_create_multi
     def create(self, vals_list):
-        """Crear servicios automáticamente al crear residuos"""
+        """Crear servicios automáticamente al crear residuos cuando ya hay datos suficientes"""
         records = super().create(vals_list)
         for record in records:
             if not record.create_new_service and record.existing_service_id:
                 # Usar servicio existente
                 record.product_id = record.existing_service_id.id
             elif record.create_new_service and record.name and record.plan_manejo and not record.product_id:
-                # Crear nuevo servicio
+                # Crear nuevo servicio si ya hay plan de manejo definido
                 try:
                     service = record.lead_id._create_service_from_residue(record)
                     record.product_id = service.id
@@ -361,7 +353,7 @@ class CrmLeadResidue(models.Model):
                     except Exception:
                         pass
                 elif record.product_id:
-                    # Actualizar servicio existente
+                    # Actualizar servicio existente generado
                     try:
                         service_name = f"Servicio de {record.name} - {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}"
                         record.product_id.write({

@@ -1,215 +1,237 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <record id="view_crm_lead_form_custom_fields" model="ir.ui.view">
-        <field name="name">crm.lead.form.custom.fields</field>
-        <field name="model">crm.lead</field>
-        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//page[@name='extra']" position="after">
+  <record id="view_crm_lead_form_custom_fields" model="ir.ui.view">
+    <field name="name">crm.lead.form.custom.fields</field>
+    <field name="model">crm.lead</field>
+    <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='extra']" position="after">
 
-                 <!-- Página de Validaciones -->
-                <page string="Validaciones" name="validaciones">
-                    
-                    <!-- Sección de Residuo Nuevo -->
-                    <group string="Validación de Residuo Nuevo">
-                        <field name="residue_new"/>
-                        
-                        <div invisible="not show_sample_alert" style="margin: 10px 0;">
-                            <div class="alert alert-warning" role="alert">
-                                <i class="fa fa-warning"/> 
-                                <strong>Atención:</strong> Se requiere solicitar muestra al cliente para análisis.
-                            </div>
-                        </div>
+        <!-- Página de Validaciones -->
+        <page string="Validaciones" name="validaciones">
+          <group string="Validación de Residuo Nuevo">
+            <field name="residue_new"/>
+            <div invisible="not show_sample_alert" style="margin: 10px 0;">
+              <div class="alert alert-warning" role="alert">
+                <i class="fa fa-warning"/>
+                <strong>Atención:</strong> Se requiere solicitar muestra al cliente para análisis.
+              </div>
+            </div>
+            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer" invisible="not residue_new" options="{'force_save': True}"/>
+            <field name="sample_result_filename" invisible="1"/>
+          </group>
 
-                        <field name="sample_result_file"
-                               filename="sample_result_filename"
-                               widget="pdf_viewer"
-                               invisible="not residue_new"
-                               options="{'force_save': True}"/>
-                        
-                        <field name="sample_result_filename" invisible="1"/>
-                    </group>
+          <group string="Validación de Visita Presencial">
+            <field name="requiere_visita"/>
+            <div invisible="not show_visita_alert" style="margin: 10px 0;">
+              <div class="alert alert-warning" role="alert">
+                <i class="fa fa-warning"/>
+                <strong>Atención:</strong> Se requiere validar residuos y volúmenes en sitio y subir el informe correspondiente.
+              </div>
+            </div>
+            <field name="visita_validation_file" filename="visita_validation_filename" widget="pdf_viewer" invisible="not requiere_visita" options="{'force_save': True}"/>
+            <field name="visita_validation_filename" invisible="1"/>
+          </group>
 
-                    <!-- Sección de Visita Presencial -->
-                    <group string="Validación de Visita Presencial">
-                        <field name="requiere_visita"/>
+          <field name="show_sample_alert" invisible="1"/>
+          <field name="show_visita_alert" invisible="1"/>
+        </page>
 
-                        <div invisible="not show_visita_alert" style="margin: 10px 0;">
-                            <div class="alert alert-warning" role="alert">
-                                <i class="fa fa-warning"/> 
-                                <strong>Atención:</strong> Se requiere validar residuos y volúmenes en sitio y subir el informe correspondiente.
-                            </div>
-                        </div>
+        <!-- Página de Servicios -->
+        <page string="Gestión de Servicio" name="residuos">
+          <separator string="Gestión de Servicios"/>
 
-                        <field name="visita_validation_file"
-                               filename="visita_validation_filename"
-                               widget="pdf_viewer"
-                               invisible="not requiere_visita"
-                               options="{'force_save': True}"/>
-                        
-                        <field name="visita_validation_filename" invisible="1"/>
-                    </group>
+          <!-- Fila 1: Servicios existentes -->
+          <group>
+            <separator string="Servicios existentes"/>
+            <field name="residue_line_ids"
+                   domain="[('create_new_service','=',False)]"
+                   context="{'default_create_new_service': False}">
+              <list editable="bottom">
+                <field name="existing_service_id"
+                       string="Servicio"
+                       domain="[('sale_ok','=',True), ('type','=','service')]"
+                       options="{'no_create': True}"
+                       context="{'tree_view_ref': 'product.product_product_tree_view', 'active_test': False}"/>
+                <field name="name" string="Nombre" readonly="1"/>
+                <field name="residue_type" string="Tipo" readonly="1"/>
+                <field name="plan_manejo" string="Plan de Manejo" readonly="1"/>
+                <field name="weight_kg" string="Peso Total (kg)"/>
+                <field name="volume" string="Unidades"/>
+                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
+                <field name="uom_id" string="Embalaje / UoM de cotización"/>
+                <field name="product_id" string="Servicio Asociado" readonly="1"/>
+                <button name="%(product.product_template_action)d"
+                        type="action"
+                        icon="fa-external-link"
+                        title="Ver servicio"
+                        context="{'search_default_id': product_id}"
+                        invisible="not product_id"/>
+                <field name="create_new_service" invisible="1" readonly="1"/>
+              </list>
 
-                    <!-- Campos computados ocultos -->
-                    <field name="show_sample_alert" invisible="1"/>
-                    <field name="show_visita_alert" invisible="1"/>
-                    
-                </page>
+              <form>
+                <group>
+                  <group string="Servicio existente">
+                    <field name="existing_service_id"
+                           string="Servicio"
+                           required="1"
+                           domain="[('sale_ok','=',True), ('type','=','service')]"
+                           options="{'no_create': True}"
+                           context="{'active_test': False}"
+                           placeholder="Buscar servicio existente..."/>
+                    <separator string="Información del servicio" colspan="2" invisible="not existing_service_id"/>
+                    <field name="name" string="Nombre" readonly="1" invisible="not existing_service_id"/>
+                    <field name="residue_type" string="Tipo de manejo" readonly="1" invisible="not existing_service_id"/>
+                    <field name="plan_manejo" string="Plan de Manejo" readonly="1" invisible="not existing_service_id"/>
+                  </group>
+                  <group string="Cantidades y Peso">
+                    <field name="weight_kg" string="Peso Total (kg)"/>
+                    <field name="volume" string="Unidades"/>
+                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
+                    <field name="uom_id" string="Embalaje / UoM de cotización"/>
+                    <field name="product_id" string="Servicio Asociado" readonly="1"/>
+                  </group>
+                  <field name="create_new_service" invisible="1" readonly="1"/>
+                </group>
+              </form>
+            </field>
+          </group>
 
-                <!-- Página de Residuos -->
-                <page string="Residuos" name="residuos">
-                    <separator string="Gestión de Residuos"/>
-                    <field name="residue_line_ids">
-                        <list editable="bottom">
-                            <field name="create_new_service" string="Crear Nuevo"/>
-                            <field name="existing_service_id" 
-                                   string="Servicio Existente" 
-                                   options="{'no_create': True}"
-                                   context="{'tree_view_ref': 'product.product_product_tree_view'}"/>
-                            <field name="name" 
-                                   string="Nombre del Residuo" 
-                                   placeholder="Ingrese el nombre del residuo..."/>
-                            <field name="residue_type" 
-                                   string="Tipo"/>
-                            <field name="plan_manejo" 
-                                   string="Plan de Manejo"/>
-                            <field name="weight_kg" string="Peso Total (kg)" placeholder="0.00"/>
-                            <field name="volume" string="Unidades" placeholder="1"/>
-                            <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
-                            <field name="uom_id" string="Unidad" options="{'no_create': True}"/>
-                            <field name="product_id" string="Servicio Generado" readonly="1"/>
-                            <button name="%(product.product_template_action)d"
-                                    type="action"
-                                    icon="fa-external-link"
-                                    title="Ver servicio"
-                                    context="{'search_default_id': product_id}"
-                                    invisible="not product_id"/>
-                        </list>
-                        
-                        <!-- Vista de formulario para edición detallada -->
-                        <form>
-                            <group>
-                                <group string="Modo de Servicio">
-                                    <field name="create_new_service"/>
-                                </group>
-                                
-                                <!-- Selección de servicio existente -->
-                                <group string="Servicio Existente" invisible="create_new_service">
-                                    <field name="existing_service_id" 
-                                           options="{'no_create': True}"
-                                           placeholder="Buscar servicio existente..."/>
-                                    <separator string="Información extraída del servicio" colspan="2" invisible="not existing_service_id"/>
-                                    <field name="name" string="Nombre" readonly="not create_new_service" invisible="not existing_service_id"/>
-                                    <field name="residue_type" string="Tipo de Residuo" readonly="not create_new_service" invisible="not existing_service_id"/>
-                                    <field name="plan_manejo" string="Plan de Manejo" readonly="not create_new_service" invisible="not existing_service_id"/>
-                                </group>
-                                
-                                <!-- Creación de nuevo servicio -->
-                                <group string="Nuevo Servicio" invisible="not create_new_service">
-                                    <field name="name" placeholder="Nombre del residuo"/>
-                                    <field name="residue_type"/>
-                                    <field name="plan_manejo"/>
-                                </group>
-                                
-                                <!-- Información de cantidades y peso - SIEMPRE EDITABLE -->
-                                <group string="Cantidades y Peso">
-                                    <field name="weight_kg" string="Peso Total (kg)" placeholder="Ejemplo: 200"/>
-                                    <field name="volume" string="Número de Unidades" placeholder="Ejemplo: 1"/>
-                                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
-                                    <field name="uom_id" options="{'no_create': True}"/>
-                                    <field name="product_id" readonly="1"/>
-                                </group>
-                            </group>
-                        </form>
-                    </field>
-                </page>
+          <!-- Fila 2: Servicios nuevos -->
+          <group>
+            <separator string="Servicios nuevos"/>
+            <field name="residue_line_ids"
+                   domain="[('create_new_service','=',True)]"
+                   context="{'default_create_new_service': True}">
+              <list editable="bottom">
+                <field name="name" string="Nombre del nuevo servicio" placeholder="Ej. Manejo de RP - Solventes"/>
+                <field name="residue_type" string="Tipo"/>
+                <field name="plan_manejo" string="Plan de Manejo"/>
+                <field name="weight_kg" string="Peso Total (kg)"/>
+                <field name="volume" string="Unidades"/>
+                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
+                <field name="uom_id" string="Embalaje / UoM de cotización"/>
+                <field name="product_id" string="Servicio Generado" readonly="1"/>
+                <button name="%(product.product_template_action)d"
+                        type="action"
+                        icon="fa-external-link"
+                        title="Ver servicio"
+                        context="{'search_default_id': product_id}"
+                        invisible="not product_id"/>
+                <field name="existing_service_id" invisible="1"/>
+                <field name="create_new_service" invisible="1"/>
+              </list>
 
-                <!-- Página de Información del Servicio -->
-                <page string="Información del Servicio" name="service_info">
-                    <group>
-                        <group string="Detalles del Servicio">
-                            <field name="pickup_location"/>
-                            <field name="service_frequency"/>
-                        </group>
-                    </group>
-                </page>
-                
-                <!-- Página de Información Básica del Prospecto -->
-                <page string="Información del Prospecto" name="prospect_info">
-                    <group>
-                        <group string="Información Básica del Prospecto">
-                            <field name="company_size"/>
-                            <field name="industrial_sector"/>
-                        </group>
-                        
-                        <group string="Clasificación Comercial">
-                            <field name="prospect_priority"/>
-                            <field name="estimated_business_potential"/>
-                        </group>
-                    </group>
-                </page>
+              <form>
+                <group>
+                  <group string="Nuevo servicio">
+                    <field name="name" string="Nombre del servicio" required="1" attrs="{'readonly':[('create_new_service','=',False)]}"/>
+                    <field name="residue_type" string="Tipo de manejo"/>
+                    <field name="plan_manejo"/>
+                  </group>
+                  <group string="Cantidades y Peso">
+                    <field name="weight_kg" string="Peso Total (kg)"/>
+                    <field name="volume" string="Unidades"/>
+                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
+                    <field name="uom_id" string="Embalaje / UoM de cotización"/>
+                    <field name="product_id" string="Servicio Generado" readonly="1"/>
+                  </group>
+                  <field name="create_new_service" invisible="1"/>
+                  <field name="existing_service_id" invisible="1"/>
+                </group>
+              </form>
+            </field>
+          </group>
+        </page>
 
-                <!-- Página de Información Operativa -->
-                <page string="Información Operativa" name="operational_info">
-                    <group>
-                        <group string="Condiciones Operativas">
-                            <field name="access_restrictions" widget="text"/>
-                            <field name="allowed_collection_schedules" widget="text"/>
-                            <field name="current_container_types" widget="text"/>
-                            <field name="special_handling_conditions" widget="text"/>
-                            <field name="seasonality" widget="text"/>
-                        </group>
-                    </group>
-                </page>
+        <!-- Página de Información del Servicio -->
+        <page string="Información del Servicio" name="service_info">
+          <group>
+            <group string="Detalles del Servicio">
+              <field name="pickup_location"/>
+              <field name="service_frequency"/>
+            </group>
+          </group>
+        </page>
 
-                <!-- Página de Información Regulatoria -->
-                <page string="Información Regulatoria" name="regulatory_info">
-                    <group>
-                        <group string="Registros y Autorizaciones">
-                            <field name="waste_generator_registration"/>
-                            <field name="environmental_authorizations" widget="text"/>
-                            <field name="quality_certifications" widget="text"/>
-                            <field name="other_relevant_permits" widget="text"/>
-                        </group>
-                    </group>
-                </page>
+        <!-- Página de Información del Prospecto -->
+        <page string="Información del Prospecto" name="prospect_info">
+          <group>
+            <group string="Información Básica del Prospecto">
+              <field name="company_size"/>
+              <field name="industrial_sector"/>
+            </group>
+            <group string="Clasificación Comercial">
+              <field name="prospect_priority"/>
+              <field name="estimated_business_potential"/>
+            </group>
+          </group>
+        </page>
 
-                <!-- Página de Competencia y Mercado -->
-                <page string="Competencia y Mercado" name="competition_market">
-                    <group>
-                        <group string="Proveedor Actual">
-                            <field name="current_service_provider"/>
-                            <field name="current_costs"/>
-                            <field name="current_provider_satisfaction"/>
-                            <field name="reason_for_new_provider" widget="text"/>
-                        </group>
-                    </group>
-                </page>
+        <!-- Página de Información Operativa -->
+        <page string="Información Operativa" name="operational_info">
+          <group>
+            <group string="Condiciones Operativas">
+              <field name="access_restrictions" widget="text"/>
+              <field name="allowed_collection_schedules" widget="text"/>
+              <field name="current_container_types" widget="text"/>
+              <field name="special_handling_conditions" widget="text"/>
+              <field name="seasonality" widget="text"/>
+            </group>
+          </group>
+        </page>
 
-                <!-- Página de Requerimientos Especiales -->
-                <page string="Requerimientos Especiales" name="special_requirements">
-                    <group>
-                        <group string="Requerimientos del Cliente">
-                            <field name="specific_certificates_needed" widget="text"/>
-                            <field name="reporting_requirements" widget="text"/>
-                            <field name="service_urgency"/>
-                            <field name="estimated_budget"/>
-                        </group>
-                    </group>
-                </page>
+        <!-- Página de Información Regulatoria -->
+        <page string="Información Regulatoria" name="regulatory_info">
+          <group>
+            <group string="Registros y Autorizaciones">
+              <field name="waste_generator_registration"/>
+              <field name="environmental_authorizations" widget="text"/>
+            </group>
+            <group>
+              <field name="quality_certifications" widget="text"/>
+              <field name="other_relevant_permits" widget="text"/>
+            </group>
+          </group>
+        </page>
 
-                <!-- Página de Seguimiento -->
-                <page string="Seguimiento" name="seguimiento">
-                    <group>
-                        <group string="Gestión de Seguimiento">
-                            <field name="next_contact_date"/>
-                            <field name="pending_actions" widget="text"/>
-                            <field name="conversation_notes" widget="text"/>
-                        </group>
-                    </group>
-                </page>
+        <!-- Página de Competencia y Mercado -->
+        <page string="Competencia y Mercado" name="competition_market">
+          <group>
+            <group string="Proveedor Actual">
+              <field name="current_service_provider"/>
+              <field name="current_costs"/>
+              <field name="current_provider_satisfaction"/>
+              <field name="reason_for_new_provider" widget="text"/>
+            </group>
+          </group>
+        </page>
 
-            </xpath>
-        </field>
-    </record>
+        <!-- Página de Requerimientos Especiales -->
+        <page string="Requerimientos Especiales" name="special_requirements">
+          <group>
+            <group string="Requerimientos del Cliente">
+              <field name="specific_certificates_needed" widget="text"/>
+              <field name="reporting_requirements" widget="text"/>
+              <field name="service_urgency"/>
+              <field name="estimated_budget"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Seguimiento -->
+        <page string="Seguimiento" name="seguimiento">
+          <group>
+            <group string="Gestión de Seguimiento">
+              <field name="next_contact_date"/>
+              <field name="pending_actions" widget="text"/>
+              <field name="conversation_notes" widget="text"/>
+            </group>
+          </group>
+        </page>
+
+      </xpath>
+    </field>
+  </record>
 </odoo>
