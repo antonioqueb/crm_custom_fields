@@ -149,6 +149,7 @@ class CrmLead(models.Model):
             'description_sale': f"""Servicio de manejo de residuo: {residue.name}
 Plan de manejo: {dict(residue._fields['plan_manejo'].selection).get(residue.plan_manejo, '')}
 Tipo de residuo: {dict(residue._fields['residue_type'].selection).get(residue.residue_type, '')}
+Capacidad: {residue.capacity}
 Peso estimado: {residue.weight_kg} kg
 Unidades: {residue.volume} {residue.uom_id.name if residue.uom_id else ''}""",
             'default_code': f"SRV-{residue.residue_type.upper()}-{residue.id}",
@@ -160,68 +161,93 @@ class CrmLeadResidue(models.Model):
     _description = 'Residuo cotizado'
 
     lead_id = fields.Many2one('crm.lead', string="Lead/Oportunidad", required=True, ondelete='cascade')
-    name = fields.Char(string="Residuo")  # QUITADO required=True temporalmente
-    volume = fields.Float(string="Unidades", default=1.0)  # MODIFICADO: ahora es "Unidades"
     
-    # NUEVO CAMPO PARA PESO
-    weight_kg = fields.Float(
-        string="Peso Total (kg)",
-        help="Peso total del residuo en kilogramos. Este valor se usará para el sistema de acopio."
+    # Campo para decidir si es nuevo o existente
+    create_new_service = fields.Boolean(
+        string="¿Es Nuevo?",
+        default=False,
+        help="Marca si es un servicio NUEVO que se va a crear. Desmarca si vas a seleccionar un servicio EXISTENTE."
     )
     
-    # CAMPO COMPUTADO PARA MOSTRAR CONVERSIÓN
-    weight_per_unit = fields.Float(
-        string="Kg por Unidad",
-        compute="_compute_weight_per_unit",
-        store=True,
-        help="Peso promedio por unidad (kg/unidad)"
+    # Campo para seleccionar servicio existente
+    existing_service_id = fields.Many2one(
+        'product.product',
+        string="Servicio Existente",
+        domain=[('sale_ok', '=', True), ('type', '=', 'service')],
+        help="Selecciona un servicio existente del catálogo"
     )
     
-    uom_id = fields.Many2one('uom.uom', string="Unidad de Medida")  # QUITADO required=True temporalmente
+    name = fields.Char(
+        string="Nombre del Residuo/Servicio",
+        required=False,
+        help="Nombre descriptivo del residuo o servicio"
+    )
     
-    # CAMBIO IMPORTANTE: hacer residue_type no requerido cuando se usa servicio existente
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         string="Tipo de manejo",
-        default='rsu',  # MANTENER default
+        default='rsu',
         help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
     )
-
-    plan_manejo = fields.Selection(
-        selection=[
-            ('reciclaje', 'Reciclaje'),
-            ('coprocesamiento', 'Co-procesamiento'),
-            ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
-            ('tratamiento_biologico', 'Tratamiento Biológico'),
-            ('tratamiento_termico', 'Tratamiento Térmico (Incineración)'),
-            ('confinamiento_controlado', 'Confinamiento Controlado'),
-            ('reutilizacion', 'Reutilización'),
-            ('destruccion_fiscal', 'Destrucción Fiscal'),
-        ],
-        string="Plan de Manejo",
-        help="Método de tratamiento y/o disposición final para el residuo según normatividad ambiental."
+    
+    plan_manejo = fields.Selection([
+        ('reciclaje', 'Reciclaje'),
+        ('coprocesamiento', 'Co-procesamiento'),
+        ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
+        ('tratamiento_biologico', 'Tratamiento Biológico'),
+        ('tratamiento_termico', 'Tratamiento Térmico'),
+        ('confinamiento_controlado', 'Confinamiento Controlado'),
+        ('reutilizacion', 'Reutilización'),
+        ('destruccion_fiscal', 'Destrucción Fiscal'),
+    ], string="Plan de Manejo")
+    
+    capacity = fields.Char(string="Capacidad", help="Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)")
+    
+    weight_kg = fields.Float(
+        string="Peso Total Estimado (kg)",
+        default=0.0,
+        help="Peso total estimado de todos los contenedores juntos"
     )
     
+    volume = fields.Float(
+        string="Número de Unidades/Contenedores",
+        default=1.0,
+        help="Cantidad de contenedores o unidades"
+    )
+    
+    weight_per_unit = fields.Float(
+        string="Peso por Unidad (kg)",
+        compute="_compute_weight_per_unit",
+        store=True,
+        help="Peso promedio por unidad (calculado automáticamente)"
+    )
+    
+    uom_id = fields.Many2one(
+        'uom.uom',
+        string="Unidad de Medida",
+        default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
+    )
+    
+    # NUEVO: Campo de texto para nombre del embalaje
+    packaging_name = fields.Char(
+        string="Nombre del Embalaje",
+        help="Escribe el nombre del embalaje y se creará automáticamente al guardar"
+    )
+    
+    # Campo many2one para el embalaje (solo lectura después de crearse)
+    packaging_id = fields.Many2one(
+        'product.packaging',
+        string="Embalaje Creado",
+        readonly=True,
+        help="Embalaje creado automáticamente"
+    )
+    
+    # Servicio asociado (solo lectura)
     product_id = fields.Many2one(
         'product.product', 
         string="Servicio Asociado",
         readonly=True,
-        help="Producto/servicio creado automáticamente a partir de este residuo"
-    )
-
-    # Campo para seleccionar servicio existente
-    existing_service_id = fields.Many2one(
-        'product.product',
-        string="Seleccionar Servicio Existente",
-        domain=[('sale_ok', '=', True), ('type', '=', 'service')],
-        help="Selecciona un servicio existente en lugar de crear uno nuevo"
-    )
-
-    # Campo para decidir si crear o seleccionar
-    create_new_service = fields.Boolean(
-        string="Crear Nuevo Servicio",
-        default=True,
-        help="Marca para crear un nuevo servicio, desmarca para seleccionar uno existente"
+        help="Producto/servicio creado o asociado a partir de este residuo"
     )
     
     @api.depends('volume', 'weight_kg')
@@ -238,41 +264,56 @@ class CrmLeadResidue(models.Model):
         """Validar coherencia entre peso y unidades"""
         for record in self:
             if record.weight_kg and record.volume:
-                # Calcular automáticamente el peso por unidad
                 record.weight_per_unit = record.weight_kg / record.volume
     
     @api.onchange('create_new_service')
     def _onchange_create_new_service(self):
         """Limpiar campos según la opción seleccionada"""
         if self.create_new_service:
-            # Si cambia a crear nuevo servicio, limpiar servicio existente
             self.existing_service_id = False
-            # Mantener otros campos para que el usuario pueda editarlos
+            self.product_id = False
+            if not self.uom_id:
+                self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
         else:
-            # Si cambia a usar servicio existente, NO limpiar campos inmediatamente
-            # Los campos se actualizarán cuando seleccione un servicio
-            pass
+            if not self.existing_service_id:
+                self.product_id = False
 
     @api.onchange('existing_service_id')
     def _onchange_existing_service_id(self):
-        """Actualizar información del residuo basado en el servicio seleccionado"""
+        """Cuando selecciona un servicio existente, cargar su información"""
         if self.existing_service_id and not self.create_new_service:
-            # Extraer información del servicio seleccionado
             service = self.existing_service_id
-            self.name = service.name
-            self.product_id = service.id
             
-            # Intentar extraer información del código del producto o descripción
+            self.product_id = service.id
+            self.name = service.name
+            self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
+            
+            # Cargar embalajes disponibles
+            packagings = self.env['product.packaging'].search([
+                ('product_id', '=', service.id)
+            ])
+            
+            if packagings:
+                self.packaging_id = packagings[0].id
+                self.packaging_name = packagings[0].name
+            
+            # Intentar extraer información de la descripción
             if service.default_code:
-                # Ejemplo: SRV-RSU-123 -> extraer RSU
                 parts = service.default_code.split('-')
                 if len(parts) >= 2:
-                    residue_type_map = {'RSU': 'rsu', 'RME': 'rme', 'RP': 'rp'}
-                    if parts[1] in residue_type_map:
-                        self.residue_type = residue_type_map[parts[1]]
+                    residue_type_map = {'PELIGROSO': 'peligroso', 'NO_PELIGROSO': 'no_peligroso', 'ESPECIAL': 'especial'}
+                    tipo_upper = parts[1].upper()
+                    if tipo_upper in residue_type_map:
+                        self.residue_type = residue_type_map[tipo_upper]
             
-            # Intentar extraer plan de manejo de la descripción o nombre
-            description = (service.description_sale or service.name or '').lower()
+            description = (service.description_sale or '').lower()
+            if 'capacidad:' in description:
+                try:
+                    capacity_text = description.split('capacidad:')[1].split('l')[0].strip()
+                    self.capacity = float(capacity_text)
+                except:
+                    pass
+            
             plan_map = {
                 'reciclaje': 'reciclaje',
                 'co-procesamiento': 'coprocesamiento', 
@@ -297,73 +338,108 @@ class CrmLeadResidue(models.Model):
                     self.plan_manejo = value
                     break
     
-    # VALIDACIÓN PERSONALIZADA RELAJADA PARA PROSPECCIÓN
     @api.constrains('create_new_service', 'name', 'existing_service_id')
     def _check_required_fields(self):
-        """Validar campos requeridos según el modo de creación"""
+        """Validar campos requeridos según el modo"""
         for record in self:
             if record.create_new_service:
-                # En prospección, sólo obligamos nombre del residuo
                 if not record.name:
                     raise ValidationError("El nombre del residuo es obligatorio cuando se crea un nuevo servicio.")
             else:
-                # Si usa servicio existente, validar que haya seleccionado uno
                 if not record.existing_service_id:
-                    raise ValidationError("Debe seleccionar un servicio existente o marcar 'Crear Nuevo Servicio'.")
+                    raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
     
     @api.model_create_multi
     def create(self, vals_list):
-        """Crear servicios automáticamente al crear residuos cuando ya hay datos suficientes"""
+        """
+        Crear servicio y embalaje si es necesario
+        """
+        uom_unit = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
+        for vals in vals_list:
+            if not vals.get('uom_id') and uom_unit:
+                vals['uom_id'] = uom_unit.id
+        
         records = super().create(vals_list)
+        
         for record in records:
+            # PASO 1: Crear o asignar producto
             if not record.create_new_service and record.existing_service_id:
-                # Usar servicio existente
                 record.product_id = record.existing_service_id.id
-            elif record.create_new_service and record.name and record.plan_manejo and not record.product_id:
-                # Crear nuevo servicio si ya hay plan de manejo definido
+                
+            elif record.create_new_service and record.name and record.plan_manejo and record.residue_type:
                 try:
                     service = record.lead_id._create_service_from_residue(record)
                     record.product_id = service.id
-                except Exception:
-                    # Si falla la creación del servicio, continúa sin bloquear
-                    pass
+                except Exception as e:
+                    import logging
+                    _logger = logging.getLogger(__name__)
+                    _logger.warning(f"Error al crear servicio: {str(e)}")
+            
+            # PASO 2: Crear embalaje SI escribió un nombre Y ya tiene producto
+            if record.packaging_name and record.product_id and not record.packaging_id:
+                try:
+                    packaging = self.env['product.packaging'].create({
+                        'name': record.packaging_name,
+                        'product_id': record.product_id.id,
+                        'qty': record.volume or 1.0,
+                    })
+                    record.packaging_id = packaging.id
+                except Exception as e:
+                    import logging
+                    _logger = logging.getLogger(__name__)
+                    _logger.warning(f"Error al crear embalaje: {str(e)}")
+        
         return records
     
     def write(self, vals):
-        """Crear o actualizar servicios al modificar residuos"""
+        """
+        Actualizar servicio y crear embalaje si es necesario
+        """
         result = super().write(vals)
+        
         for record in self:
-            # Si cambia a usar servicio existente
-            if 'existing_service_id' in vals and not record.create_new_service:
+            # PASO 1: Actualizar o crear producto
+            if 'existing_service_id' in vals and not record.create_new_service and record.existing_service_id:
                 record.product_id = record.existing_service_id.id
-            # Si cambia a crear nuevo servicio
-            elif 'create_new_service' in vals and record.create_new_service:
-                if record.name and record.plan_manejo and not record.product_id:
+            
+            elif record.create_new_service:
+                if not record.product_id and record.name and record.plan_manejo and record.residue_type:
                     try:
                         service = record.lead_id._create_service_from_residue(record)
                         record.product_id = service.id
-                    except Exception:
-                        pass
-            # Si se modifican campos importantes y es nuevo servicio
-            elif record.create_new_service and ('name' in vals or 'plan_manejo' in vals or 'weight_kg' in vals):
-                if not record.product_id and record.name and record.plan_manejo:
+                    except Exception as e:
+                        import logging
+                        _logger = logging.getLogger(__name__)
+                        _logger.warning(f"Error al crear servicio: {str(e)}")
+                
+                elif record.product_id and record.name:
                     try:
-                        service = record.lead_id._create_service_from_residue(record)
-                        record.product_id = service.id
-                    except Exception:
-                        pass
-                elif record.product_id:
-                    # Actualizar servicio existente generado
-                    try:
-                        service_name = f"Servicio de {record.name} - {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}"
                         record.product_id.write({
-                            'name': service_name,
+                            'name': record.name,
                             'description_sale': f"""Servicio de manejo de residuo: {record.name}
-Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '')}
-Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '')}
+Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '') if record.plan_manejo else 'No especificado'}
+Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '') if record.residue_type else 'No especificado'}
+Capacidad: {record.capacity} L
 Peso estimado: {record.weight_kg} kg
 Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                         })
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        import logging
+                        _logger = logging.getLogger(__name__)
+                        _logger.warning(f"Error al actualizar servicio: {str(e)}")
+            
+            # PASO 2: Crear embalaje SI escribió un nombre Y ya tiene producto Y NO tiene embalaje aún
+            if 'packaging_name' in vals and record.packaging_name and record.product_id and not record.packaging_id:
+                try:
+                    packaging = self.env['product.packaging'].create({
+                        'name': record.packaging_name,
+                        'product_id': record.product_id.id,
+                        'qty': record.volume or 1.0,
+                    })
+                    record.packaging_id = packaging.id
+                except Exception as e:
+                    import logging
+                    _logger = logging.getLogger(__name__)
+                    _logger.warning(f"Error al crear embalaje: {str(e)}")
+        
         return result

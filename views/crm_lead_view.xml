@@ -1,14 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-  <record id="view_crm_lead_form_custom_fields" model="ir.ui.view">
-    <field name="name">crm.lead.form.custom.fields</field>
+  <record id="view_crm_lead_form_custom" model="ir.ui.view">
+    <field name="name">crm.lead.form.custom</field>
     <field name="model">crm.lead</field>
     <field name="inherit_id" ref="crm.crm_lead_view_form"/>
     <field name="arch" type="xml">
-      <xpath expr="//page[@name='extra']" position="after">
 
-        <!-- Página de Validaciones -->
-        <page string="Validaciones" name="validaciones">
+      <xpath expr="//notebook" position="inside">
+
+        <!-- Página de Validación de Residuos -->
+        <page string="Validación de Residuos" name="residue_validation">
           <group string="Validación de Residuo Nuevo">
             <field name="residue_new"/>
             <div invisible="not show_sample_alert" style="margin: 10px 0;">
@@ -37,108 +37,92 @@
           <field name="show_visita_alert" invisible="1"/>
         </page>
 
-        <!-- Página de Servicios -->
+        <!-- Página de Servicios - UNA SOLA LISTA -->
         <page string="Gestión de Servicio" name="residuos">
-          <separator string="Gestión de Servicios"/>
-
-          <!-- Fila 1: Servicios existentes -->
+          <separator string="Listado de Servicios y Residuos"/>
+          
           <group>
-            <separator string="Servicios existentes"/>
-            <field name="residue_line_ids"
-                   domain="[('create_new_service','=',False)]"
-                   context="{'default_create_new_service': False}">
+            <field name="residue_line_ids" nolabel="1">
               <list editable="bottom">
+                <!-- Checkbox para identificar si es nuevo -->
+                <field name="create_new_service" string="¿Nuevo?"/>
+                
+                <!-- Campo para seleccionar servicio existente (visible cuando NO es nuevo) -->
                 <field name="existing_service_id"
-                       string="Servicio"
+                       string="Servicio Existente"
                        domain="[('sale_ok','=',True), ('type','=','service')]"
                        options="{'no_create': True}"
-                       context="{'tree_view_ref': 'product.product_product_tree_view', 'active_test': False}"/>
-                <field name="name" string="Nombre" readonly="1"/>
-                <field name="residue_type" string="Tipo" readonly="1"/>
-                <field name="plan_manejo" string="Plan de Manejo" readonly="1"/>
-                <field name="weight_kg" string="Peso Total (kg)"/>
-                <field name="volume" string="Unidades"/>
-                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
-                <field name="uom_id" string="Embalaje / UoM de cotización"/>
-                <field name="product_id" string="Servicio Asociado" readonly="1"/>
-                <button name="%(product.product_template_action)d"
-                        type="action"
-                        icon="fa-external-link"
-                        title="Ver servicio"
-                        context="{'search_default_id': product_id}"
-                        invisible="not product_id"/>
-                <field name="create_new_service" invisible="1" readonly="1"/>
-              </list>
-
-              <form>
-                <group>
-                  <group string="Servicio existente">
-                    <field name="existing_service_id"
-                           string="Servicio"
-                           required="1"
-                           domain="[('sale_ok','=',True), ('type','=','service')]"
-                           options="{'no_create': True}"
-                           context="{'active_test': False}"
-                           placeholder="Buscar servicio existente..."/>
-                    <separator string="Información del servicio" colspan="2" invisible="not existing_service_id"/>
-                    <field name="name" string="Nombre" readonly="1" invisible="not existing_service_id"/>
-                    <field name="residue_type" string="Tipo de manejo" readonly="1" invisible="not existing_service_id"/>
-                    <field name="plan_manejo" string="Plan de Manejo" readonly="1" invisible="not existing_service_id"/>
-                  </group>
-                  <group string="Cantidades y Peso">
-                    <field name="weight_kg" string="Peso Total (kg)"/>
-                    <field name="volume" string="Unidades"/>
-                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
-                    <field name="uom_id" string="Embalaje / UoM de cotización"/>
-                    <field name="product_id" string="Servicio Asociado" readonly="1"/>
-                  </group>
-                  <field name="create_new_service" invisible="1" readonly="1"/>
-                </group>
-              </form>
-            </field>
-          </group>
-
-          <!-- Fila 2: Servicios nuevos -->
-          <group>
-            <separator string="Servicios nuevos"/>
-            <field name="residue_line_ids"
-                   domain="[('create_new_service','=',True)]"
-                   context="{'default_create_new_service': True}">
-              <list editable="bottom">
-                <field name="name" string="Nombre del nuevo servicio" placeholder="Ej. Manejo de RP - Solventes"/>
+                       optional="show"/>
+                
+                <!-- Campos SIEMPRE EDITABLES -->
+                <field name="name" string="Nombre"/>
                 <field name="residue_type" string="Tipo"/>
                 <field name="plan_manejo" string="Plan de Manejo"/>
-                <field name="weight_kg" string="Peso Total (kg)"/>
+                <field name="capacity" string="Capacidad"/>
+                <field name="weight_kg" string="Peso (kg)"/>
                 <field name="volume" string="Unidades"/>
                 <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
-                <field name="uom_id" string="Embalaje / UoM de cotización"/>
-                <field name="product_id" string="Servicio Generado" readonly="1"/>
+                <field name="uom_id" string="UoM"/>
+                
+                <!-- NUEVO: Campo de texto para nombre del embalaje -->
+                <field name="packaging_name" string="Nombre Embalaje"/>
+                
+                <!-- Embalaje creado (solo lectura) -->
+                <field name="packaging_id" string="Embalaje" readonly="1" optional="show"/>
+                
+                <!-- Servicio asociado (solo lectura) -->
+                <field name="product_id" string="Servicio" readonly="1" optional="show"/>
+                
                 <button name="%(product.product_template_action)d"
                         type="action"
                         icon="fa-external-link"
                         title="Ver servicio"
                         context="{'search_default_id': product_id}"
                         invisible="not product_id"/>
-                <field name="existing_service_id" invisible="1"/>
-                <field name="create_new_service" invisible="1"/>
               </list>
 
               <form>
                 <group>
-                  <group string="Nuevo servicio">
-                    <field name="name" string="Nombre del servicio" required="1" attrs="{'readonly':[('create_new_service','=',False)]}"/>
-                    <field name="residue_type" string="Tipo de manejo"/>
+                  <group string="Tipo de Servicio">
+                    <field name="create_new_service"/>
+                    
+                    <!-- Selección de servicio existente -->
+                    <field name="existing_service_id"
+                           string="Servicio Existente"
+                           domain="[('sale_ok','=',True), ('type','=','service')]"
+                           options="{'no_create': True}"
+                           placeholder="Buscar servicio existente..."
+                           invisible="create_new_service"
+                           required="not create_new_service"/>
+                  </group>
+                  
+                  <group string="Información del Servicio/Residuo">
+                    <field name="name" required="1"/>
+                    <field name="residue_type"/>
                     <field name="plan_manejo"/>
+                    <field name="product_id" readonly="1"/>
                   </group>
-                  <group string="Cantidades y Peso">
-                    <field name="weight_kg" string="Peso Total (kg)"/>
-                    <field name="volume" string="Unidades"/>
-                    <field name="weight_per_unit" string="Kg por Unidad" readonly="1"/>
-                    <field name="uom_id" string="Embalaje / UoM de cotización"/>
-                    <field name="product_id" string="Servicio Generado" readonly="1"/>
+                </group>
+                
+                <group string="Cantidades, Capacidad y Peso">
+                  <group>
+                    <field name="capacity"/>
+                    <field name="weight_kg"/>
+                    <field name="volume"/>
+                    <field name="weight_per_unit" readonly="1"/>
                   </group>
-                  <field name="create_new_service" invisible="1"/>
-                  <field name="existing_service_id" invisible="1"/>
+                  <group>
+                    <field name="uom_id"/>
+                  </group>
+                </group>
+                
+                <group string="Embalaje">
+                  <group>
+                    <field name="packaging_name" 
+                           placeholder="Escribe el nombre del embalaje (ej: Tambor 200L, Contenedor IBC, Bolsa 50kg)"
+                           help="Escribe el nombre y se creará automáticamente al guardar"/>
+                    <field name="packaging_id" readonly="1"/>
+                  </group>
                 </group>
               </form>
             </field>
