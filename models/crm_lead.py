@@ -1,6 +1,9 @@
 # models/crm_lead.py
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
@@ -234,12 +237,15 @@ class CrmLeadResidue(models.Model):
         help="Escribe el nombre del embalaje y se creará automáticamente al guardar"
     )
     
-    # Campo many2one para el embalaje (solo lectura después de crearse)
+    # -------------------------------------------------------------------------
+    # CORRECCIÓN ODOO 19:
+    # product.packaging fue eliminado. Usamos uom.uom que ahora gestiona los empaques.
+    # -------------------------------------------------------------------------
     packaging_id = fields.Many2one(
-        'product.packaging',
+        'uom.uom', 
         string="Embalaje Creado",
         readonly=True,
-        help="Embalaje creado automáticamente"
+        help="Embalaje creado automáticamente (UoM tipo Empaque)"
     )
     
     # Servicio asociado (solo lectura)
@@ -288,8 +294,10 @@ class CrmLeadResidue(models.Model):
             self.name = service.name
             self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
             
-            # Cargar embalajes disponibles
-            packagings = self.env['product.packaging'].search([
+            # -----------------------------------------------------------------
+            # CORRECCIÓN ODOO 19: Buscamos en uom.uom en lugar de product.packaging
+            # -----------------------------------------------------------------
+            packagings = self.env['uom.uom'].search([
                 ('product_id', '=', service.id)
             ])
             
@@ -349,6 +357,27 @@ class CrmLeadResidue(models.Model):
                 if not record.existing_service_id:
                     raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
     
+    def _create_or_update_packaging_v19(self, record):
+        """Helper para crear/actualizar empaque (ahora UoM) en Odoo 19"""
+        if record.packaging_name and record.product_id and not record.packaging_id:
+            try:
+                # En Odoo 19, creamos un UoM específico linkeado al producto
+                # Debemos asegurar que el UoM tenga la misma categoría que la unidad base del producto
+                category = record.product_id.uom_id.category_id
+                
+                if category:
+                    packaging_uom = self.env['uom.uom'].create({
+                        'name': record.packaging_name,
+                        'category_id': category.id,
+                        'uom_type': 'bigger', # Empaque suele ser mayor que la unidad
+                        'ratio': record.volume or 1.0, # ratio reemplaza a factor en esta lógica
+                        'product_id': record.product_id.id,
+                        'active': True,
+                    })
+                    record.packaging_id = packaging_uom.id
+            except Exception as e:
+                _logger.warning(f"Error al crear embalaje (UoM) en Odoo 19: {str(e)}")
+
     @api.model_create_multi
     def create(self, vals_list):
         """
@@ -371,23 +400,10 @@ class CrmLeadResidue(models.Model):
                     service = record.lead_id._create_service_from_residue(record)
                     record.product_id = service.id
                 except Exception as e:
-                    import logging
-                    _logger = logging.getLogger(__name__)
                     _logger.warning(f"Error al crear servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje SI escribió un nombre Y ya tiene producto
-            if record.packaging_name and record.product_id and not record.packaging_id:
-                try:
-                    packaging = self.env['product.packaging'].create({
-                        'name': record.packaging_name,
-                        'product_id': record.product_id.id,
-                        'qty': record.volume or 1.0,
-                    })
-                    record.packaging_id = packaging.id
-                except Exception as e:
-                    import logging
-                    _logger = logging.getLogger(__name__)
-                    _logger.warning(f"Error al crear embalaje: {str(e)}")
+            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
+            self._create_or_update_packaging_v19(record)
         
         return records
     
@@ -408,8 +424,6 @@ class CrmLeadResidue(models.Model):
                         service = record.lead_id._create_service_from_residue(record)
                         record.product_id = service.id
                     except Exception as e:
-                        import logging
-                        _logger = logging.getLogger(__name__)
                         _logger.warning(f"Error al crear servicio: {str(e)}")
                 
                 elif record.product_id and record.name:
@@ -424,22 +438,10 @@ Peso estimado: {record.weight_kg} kg
 Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                         })
                     except Exception as e:
-                        import logging
-                        _logger = logging.getLogger(__name__)
                         _logger.warning(f"Error al actualizar servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje SI escribió un nombre Y ya tiene producto Y NO tiene embalaje aún
-            if 'packaging_name' in vals and record.packaging_name and record.product_id and not record.packaging_id:
-                try:
-                    packaging = self.env['product.packaging'].create({
-                        'name': record.packaging_name,
-                        'product_id': record.product_id.id,
-                        'qty': record.volume or 1.0,
-                    })
-                    record.packaging_id = packaging.id
-                except Exception as e:
-                    import logging
-                    _logger = logging.getLogger(__name__)
-                    _logger.warning(f"Error al crear embalaje: {str(e)}")
+            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
+            if 'packaging_name' in vals:
+                 self._create_or_update_packaging_v19(record)
         
         return result
