@@ -8,7 +8,8 @@
         'crm',
         'uom',
         'product',
-        'sale_management',  # AGREGADO: necesario para funcionalidad de ventas
+        'sale_management', 
+        'stock' 
     ],
     'data': [
         'security/ir.model.access.csv',
