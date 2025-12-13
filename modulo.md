@@ -1,3 +1,39 @@
+## ./__init__.py
+```py
+from . import models
+```
+
+## ./__manifest__.py
+```py
+{
+    'name': 'CRM Custom Fields',
+    'version': '19.0.1.0.1',
+    'category': 'Sales/CRM',
+    'summary': 'Añade campos personalizados en oportunidades CRM.',
+    'author': 'Alphaqueb Consulting',
+    'depends': [
+        'crm',
+        'uom',
+        'product',
+        'sale_management', 
+        'stock' 
+    ],
+    'data': [
+        'security/ir.model.access.csv',
+        'views/crm_lead_view.xml',
+    ],
+    'installable': True,
+    'application': False,
+    'auto_install': False,
+}```
+
+## ./models/__init__.py
+```py
+from . import crm_lead
+```
+
+## ./models/crm_lead.py
+```py
 # models/crm_lead.py
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
@@ -238,14 +274,14 @@ class CrmLeadResidue(models.Model):
     )
     
     # -------------------------------------------------------------------------
-    # CORREGIDO: Usamos product.packaging ya que uom.uom NO tiene product_id
+    # CORRECCIÓN ODOO 19:
+    # product.packaging fue eliminado. Usamos uom.uom que ahora gestiona los empaques.
     # -------------------------------------------------------------------------
     packaging_id = fields.Many2one(
-        'product.packaging', 
+        'uom.uom', 
         string="Embalaje Creado",
         readonly=True,
-        domain="[('product_id', '=', product_id)]",
-        help="Embalaje creado automáticamente (product.packaging)"
+        help="Embalaje creado automáticamente (UoM tipo Empaque)"
     )
     
     # Servicio asociado (solo lectura)
@@ -295,18 +331,15 @@ class CrmLeadResidue(models.Model):
             self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
             
             # -----------------------------------------------------------------
-            # CORREGIDO: Buscamos en product.packaging (NO uom.uom)
+            # CORRECCIÓN ODOO 19: Buscamos en uom.uom en lugar de product.packaging
             # -----------------------------------------------------------------
-            packagings = self.env['product.packaging'].search([
+            packagings = self.env['uom.uom'].search([
                 ('product_id', '=', service.id)
-            ], limit=1)
+            ])
             
             if packagings:
-                self.packaging_id = packagings.id
-                self.packaging_name = packagings.name
-            else:
-                self.packaging_id = False
-                self.packaging_name = False
+                self.packaging_id = packagings[0].id
+                self.packaging_name = packagings[0].name
             
             # Intentar extraer información de la descripción
             if service.default_code:
@@ -361,27 +394,25 @@ class CrmLeadResidue(models.Model):
                     raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
     
     def _create_or_update_packaging_v19(self, record):
-        """Helper para crear/actualizar empaque (product.packaging) en Odoo 19"""
+        """Helper para crear/actualizar empaque (ahora UoM) en Odoo 19"""
         if record.packaging_name and record.product_id and not record.packaging_id:
             try:
-                # Buscamos en product.packaging
-                existing = self.env['product.packaging'].search([
-                    ('name', '=', record.packaging_name),
-                    ('product_id', '=', record.product_id.id)
-                ], limit=1)
+                # En Odoo 19, creamos un UoM específico linkeado al producto
+                # Debemos asegurar que el UoM tenga la misma categoría que la unidad base del producto
+                category = record.product_id.uom_id.category_id
                 
-                if existing:
-                    record.packaging_id = existing.id
-                else:
-                    # Crear nuevo packaging asociado al producto
-                    packaging = self.env['product.packaging'].create({
+                if category:
+                    packaging_uom = self.env['uom.uom'].create({
                         'name': record.packaging_name,
+                        'category_id': category.id,
+                        'uom_type': 'bigger', # Empaque suele ser mayor que la unidad
+                        'ratio': record.volume or 1.0, # ratio reemplaza a factor en esta lógica
                         'product_id': record.product_id.id,
-                        'qty': record.volume or 1.0,
+                        'active': True,
                     })
-                    record.packaging_id = packaging.id
+                    record.packaging_id = packaging_uom.id
             except Exception as e:
-                _logger.warning(f"Error al crear embalaje (product.packaging): {str(e)}")
+                _logger.warning(f"Error al crear embalaje (UoM) en Odoo 19: {str(e)}")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -407,7 +438,7 @@ class CrmLeadResidue(models.Model):
                 except Exception as e:
                     _logger.warning(f"Error al crear servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje
+            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
             self._create_or_update_packaging_v19(record)
         
         return records
@@ -445,8 +476,233 @@ Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                     except Exception as e:
                         _logger.warning(f"Error al actualizar servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje
+            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
             if 'packaging_name' in vals:
                  self._create_or_update_packaging_v19(record)
         
-        return result
+        return result```
+
+## ./views/crm_lead_view.xml
+```xml
+<odoo>
+  <record id="view_crm_lead_form_custom" model="ir.ui.view">
+    <field name="name">crm.lead.form.custom</field>
+    <field name="model">crm.lead</field>
+    <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+    <field name="arch" type="xml">
+
+      <xpath expr="//notebook" position="inside">
+
+        <!-- Página de Validación de Residuos -->
+        <page string="Validación de Residuos" name="residue_validation">
+          <group string="Validación de Residuo Nuevo">
+            <field name="residue_new"/>
+            <div invisible="not show_sample_alert" style="margin: 10px 0;">
+              <div class="alert alert-warning" role="alert">
+                <i class="fa fa-warning"/>
+                <strong>Atención:</strong> Se requiere solicitar muestra al cliente para análisis.
+              </div>
+            </div>
+            <field name="sample_result_file" filename="sample_result_filename" widget="pdf_viewer" invisible="not residue_new" options="{'force_save': True}"/>
+            <field name="sample_result_filename" invisible="1"/>
+          </group>
+
+          <group string="Validación de Visita Presencial">
+            <field name="requiere_visita"/>
+            <div invisible="not show_visita_alert" style="margin: 10px 0;">
+              <div class="alert alert-warning" role="alert">
+                <i class="fa fa-warning"/>
+                <strong>Atención:</strong> Se requiere validar residuos y volúmenes en sitio y subir el informe correspondiente.
+              </div>
+            </div>
+            <field name="visita_validation_file" filename="visita_validation_filename" widget="pdf_viewer" invisible="not requiere_visita" options="{'force_save': True}"/>
+            <field name="visita_validation_filename" invisible="1"/>
+          </group>
+
+          <field name="show_sample_alert" invisible="1"/>
+          <field name="show_visita_alert" invisible="1"/>
+        </page>
+
+        <!-- Página de Servicios - UNA SOLA LISTA -->
+        <page string="Gestión de Servicio" name="residuos">
+          <separator string="Listado de Servicios y Residuos"/>
+          
+          <group>
+            <field name="residue_line_ids" nolabel="1">
+              <list editable="bottom">
+                <!-- Checkbox para identificar si es nuevo -->
+                <field name="create_new_service" string="¿Nuevo?"/>
+                
+                <!-- Campo para seleccionar servicio existente (visible cuando NO es nuevo) -->
+                <field name="existing_service_id"
+                       string="Servicio Existente"
+                       domain="[('sale_ok','=',True), ('type','=','service')]"
+                       options="{'no_create': True}"
+                       optional="show"/>
+                
+                <!-- Campos SIEMPRE EDITABLES -->
+                <field name="name" string="Nombre"/>
+                <field name="residue_type" string="Tipo"/>
+                <field name="plan_manejo" string="Plan de Manejo"/>
+                <field name="capacity" string="Capacidad"/>
+                <field name="weight_kg" string="Peso (kg)"/>
+                <field name="volume" string="Unidades"/>
+                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
+                <field name="uom_id" string="UoM"/>
+                
+                <!-- NUEVO: Campo de texto para nombre del embalaje -->
+                <field name="packaging_name" string="Nombre Embalaje"/>
+                
+                <!-- Embalaje creado (solo lectura) -->
+                <field name="packaging_id" string="Embalaje" readonly="1" optional="show"/>
+                
+                <!-- Servicio asociado (solo lectura) -->
+                <field name="product_id" string="Servicio" readonly="1" optional="show"/>
+                
+                <button name="%(product.product_template_action)d"
+                        type="action"
+                        icon="fa-external-link"
+                        title="Ver servicio"
+                        context="{'search_default_id': product_id}"
+                        invisible="not product_id"/>
+              </list>
+
+              <form>
+                <group>
+                  <group string="Tipo de Servicio">
+                    <field name="create_new_service"/>
+                    
+                    <!-- Selección de servicio existente -->
+                    <field name="existing_service_id"
+                           string="Servicio Existente"
+                           domain="[('sale_ok','=',True), ('type','=','service')]"
+                           options="{'no_create': True}"
+                           placeholder="Buscar servicio existente..."
+                           invisible="create_new_service"
+                           required="not create_new_service"/>
+                  </group>
+                  
+                  <group string="Información del Servicio/Residuo">
+                    <field name="name" required="1"/>
+                    <field name="residue_type"/>
+                    <field name="plan_manejo"/>
+                    <field name="product_id" readonly="1"/>
+                  </group>
+                </group>
+                
+                <group string="Cantidades, Capacidad y Peso">
+                  <group>
+                    <field name="capacity"/>
+                    <field name="weight_kg"/>
+                    <field name="volume"/>
+                    <field name="weight_per_unit" readonly="1"/>
+                  </group>
+                  <group>
+                    <field name="uom_id"/>
+                  </group>
+                </group>
+                
+                <group string="Embalaje">
+                  <group>
+                    <field name="packaging_name" 
+                           placeholder="Escribe el nombre del embalaje (ej: Tambor 200L, Contenedor IBC, Bolsa 50kg)"
+                           help="Escribe el nombre y se creará automáticamente al guardar"/>
+                    <field name="packaging_id" readonly="1"/>
+                  </group>
+                </group>
+              </form>
+            </field>
+          </group>
+        </page>
+
+        <!-- Página de Información del Servicio -->
+        <page string="Información del Servicio" name="service_info">
+          <group>
+            <group string="Detalles del Servicio">
+              <field name="pickup_location"/>
+              <field name="service_frequency"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Información del Prospecto -->
+        <page string="Información del Prospecto" name="prospect_info">
+          <group>
+            <group string="Información Básica del Prospecto">
+              <field name="company_size"/>
+              <field name="industrial_sector"/>
+            </group>
+            <group string="Clasificación Comercial">
+              <field name="prospect_priority"/>
+              <field name="estimated_business_potential"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Información Operativa -->
+        <page string="Información Operativa" name="operational_info">
+          <group>
+            <group string="Condiciones Operativas">
+              <field name="access_restrictions" widget="text"/>
+              <field name="allowed_collection_schedules" widget="text"/>
+              <field name="current_container_types" widget="text"/>
+              <field name="special_handling_conditions" widget="text"/>
+              <field name="seasonality" widget="text"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Información Regulatoria -->
+        <page string="Información Regulatoria" name="regulatory_info">
+          <group>
+            <group string="Registros y Autorizaciones">
+              <field name="waste_generator_registration"/>
+              <field name="environmental_authorizations" widget="text"/>
+            </group>
+            <group>
+              <field name="quality_certifications" widget="text"/>
+              <field name="other_relevant_permits" widget="text"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Competencia y Mercado -->
+        <page string="Competencia y Mercado" name="competition_market">
+          <group>
+            <group string="Proveedor Actual">
+              <field name="current_service_provider"/>
+              <field name="current_costs"/>
+              <field name="current_provider_satisfaction"/>
+              <field name="reason_for_new_provider" widget="text"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Requerimientos Especiales -->
+        <page string="Requerimientos Especiales" name="special_requirements">
+          <group>
+            <group string="Requerimientos del Cliente">
+              <field name="specific_certificates_needed" widget="text"/>
+              <field name="reporting_requirements" widget="text"/>
+              <field name="service_urgency"/>
+              <field name="estimated_budget"/>
+            </group>
+          </group>
+        </page>
+
+        <!-- Página de Seguimiento -->
+        <page string="Seguimiento" name="seguimiento">
+          <group>
+            <group string="Gestión de Seguimiento">
+              <field name="next_contact_date"/>
+              <field name="pending_actions" widget="text"/>
+              <field name="conversation_notes" widget="text"/>
+            </group>
+          </group>
+        </page>
+
+      </xpath>
+    </field>
+  </record>
+</odoo>```
+
