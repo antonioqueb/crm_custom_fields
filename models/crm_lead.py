@@ -130,7 +130,6 @@ class CrmLead(models.Model):
 
     def _create_service_from_residue(self, residue):
         """Crear un producto de tipo servicio desde un residue"""
-        # Obtener categoría para servicios de residuos (o crear una)
         category = self.env['product.category'].search([
             ('name', 'ilike', 'servicios de residuos')
         ], limit=1)
@@ -140,7 +139,6 @@ class CrmLead(models.Model):
                 'name': 'Servicios de Residuos',
             })
 
-        # Crear el producto/servicio
         service_name = f"{residue.name}"
         
         return self.env['product.product'].create({
@@ -227,33 +225,33 @@ class CrmLeadResidue(models.Model):
     
     uom_id = fields.Many2one(
         'uom.uom',
-        string="Unidad de Medida",
+        string="Unidad de Medida Base",
         default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
     )
     
     # NUEVO: Campo de texto para nombre del embalaje
     packaging_name = fields.Char(
         string="Nombre del Embalaje",
-        help="Escribe el nombre del embalaje y se creará automáticamente al guardar"
+        help="Escribe el nombre para crear uno nuevo. Si dejas esto vacío, selecciona uno existente abajo."
     )
-    
-    # -------------------------------------------------------------------------
-    # CORREGIDO: Usamos product.packaging ya que uom.uom NO tiene product_id
-    # -------------------------------------------------------------------------
-    packaging_id = fields.Many2one(
-        'product.packaging', 
-        string="Embalaje Creado",
-        readonly=True,
-        domain="[('product_id', '=', product_id)]",
-        help="Embalaje creado automáticamente (product.packaging)"
-    )
-    
+
     # Servicio asociado (solo lectura)
     product_id = fields.Many2one(
         'product.product', 
         string="Servicio Asociado",
         readonly=True,
         help="Producto/servicio creado o asociado a partir de este residuo"
+    )
+
+    # -------------------------------------------------------------------------
+    # CORRECCIÓN: Eliminado domain que causaba el error 'uom_type'
+    # -------------------------------------------------------------------------
+    packaging_id = fields.Many2one(
+        'uom.uom', 
+        string="Embalaje (Seleccionar o Creado)",
+        readonly=False, 
+        # Domain eliminado para evitar error de campo inexistente uom_type
+        help="Selecciona un embalaje existente o se llenará automáticamente al crear uno nuevo."
     )
     
     @api.depends('volume', 'weight_kg')
@@ -294,21 +292,11 @@ class CrmLeadResidue(models.Model):
             self.name = service.name
             self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
             
-            # -----------------------------------------------------------------
-            # CORREGIDO: Buscamos en product.packaging (NO uom.uom)
-            # -----------------------------------------------------------------
-            packagings = self.env['product.packaging'].search([
-                ('product_id', '=', service.id)
-            ], limit=1)
+            # Limpiamos selección previa
+            self.packaging_id = False
+            self.packaging_name = False
             
-            if packagings:
-                self.packaging_id = packagings.id
-                self.packaging_name = packagings.name
-            else:
-                self.packaging_id = False
-                self.packaging_name = False
-            
-            # Intentar extraer información de la descripción
+            # Lógica de extracción de datos...
             if service.default_code:
                 parts = service.default_code.split('-')
                 if len(parts) >= 2:
@@ -361,33 +349,45 @@ class CrmLeadResidue(models.Model):
                     raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
     
     def _create_or_update_packaging_v19(self, record):
-        """Helper para crear/actualizar empaque (product.packaging) en Odoo 19"""
-        if record.packaging_name and record.product_id and not record.packaging_id:
+        """
+        Lógica para crear UoM.
+        CORRECCIÓN: Eliminada referencia a uom_type y uso de factor en vez de ratio.
+        """
+        if record.packaging_id and not record.packaging_name:
+            return
+
+        if record.packaging_name and not record.packaging_id:
             try:
-                # Buscamos en product.packaging
-                existing = self.env['product.packaging'].search([
-                    ('name', '=', record.packaging_name),
-                    ('product_id', '=', record.product_id.id)
-                ], limit=1)
-                
+                domain = [('name', '=', record.packaging_name)]
+                existing = self.env['uom.uom'].search(domain, limit=1)
+
                 if existing:
                     record.packaging_id = existing.id
                 else:
-                    # Crear nuevo packaging asociado al producto
-                    packaging = self.env['product.packaging'].create({
+                    # CORREGIDO: Eliminado uom_type
+                    # Calculamos el factor (inverso de la cantidad). Ej: Caja de 10 -> factor = 0.1
+                    qty = record.volume or 1.0
+                    factor = 1.0 / qty if qty != 0 else 1.0
+                    
+                    vals = {
                         'name': record.packaging_name,
-                        'product_id': record.product_id.id,
-                        'qty': record.volume or 1.0,
-                    })
-                    record.packaging_id = packaging.id
+                        # 'uom_type': 'bigger',  <-- ELIMINADO
+                        'factor': factor,        # <-- Usamos factor (campo estándar)
+                        'active': True,
+                    }
+                    
+                    # Intentamos enlazar (opcional, si el campo existe)
+                    if 'relative_uom_id' in self.env['uom.uom']._fields and record.uom_id:
+                        vals['relative_uom_id'] = record.uom_id.id
+                        
+                    new_uom = self.env['uom.uom'].create(vals)
+                    record.packaging_id = new_uom.id
+                    
             except Exception as e:
-                _logger.warning(f"Error al crear embalaje (product.packaging): {str(e)}")
+                _logger.warning(f"Error al crear/buscar embalaje (UoM): {str(e)}")
 
     @api.model_create_multi
     def create(self, vals_list):
-        """
-        Crear servicio y embalaje si es necesario
-        """
         uom_unit = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
         for vals in vals_list:
             if not vals.get('uom_id') and uom_unit:
@@ -396,57 +396,33 @@ class CrmLeadResidue(models.Model):
         records = super().create(vals_list)
         
         for record in records:
-            # PASO 1: Crear o asignar producto
             if not record.create_new_service and record.existing_service_id:
                 record.product_id = record.existing_service_id.id
-                
-            elif record.create_new_service and record.name and record.plan_manejo and record.residue_type:
+            elif record.create_new_service and record.name:
                 try:
                     service = record.lead_id._create_service_from_residue(record)
                     record.product_id = service.id
                 except Exception as e:
                     _logger.warning(f"Error al crear servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje
             self._create_or_update_packaging_v19(record)
         
         return records
     
     def write(self, vals):
-        """
-        Actualizar servicio y crear embalaje si es necesario
-        """
         result = super().write(vals)
-        
         for record in self:
-            # PASO 1: Actualizar o crear producto
-            if 'existing_service_id' in vals and not record.create_new_service and record.existing_service_id:
-                record.product_id = record.existing_service_id.id
+            if 'existing_service_id' in vals:
+                if not record.create_new_service and record.existing_service_id:
+                    record.product_id = record.existing_service_id.id
             
-            elif record.create_new_service:
-                if not record.product_id and record.name and record.plan_manejo and record.residue_type:
-                    try:
-                        service = record.lead_id._create_service_from_residue(record)
-                        record.product_id = service.id
-                    except Exception as e:
-                        _logger.warning(f"Error al crear servicio: {str(e)}")
-                
-                elif record.product_id and record.name:
-                    try:
-                        record.product_id.write({
-                            'name': record.name,
-                            'description_sale': f"""Servicio de manejo de residuo: {record.name}
-Plan de manejo: {dict(record._fields['plan_manejo'].selection).get(record.plan_manejo, '') if record.plan_manejo else 'No especificado'}
-Tipo de residuo: {dict(record._fields['residue_type'].selection).get(record.residue_type, '') if record.residue_type else 'No especificado'}
-Capacidad: {record.capacity} L
-Peso estimado: {record.weight_kg} kg
-Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
-                        })
-                    except Exception as e:
-                        _logger.warning(f"Error al actualizar servicio: {str(e)}")
-            
-            # PASO 2: Crear embalaje
-            if 'packaging_name' in vals:
-                 self._create_or_update_packaging_v19(record)
+            elif record.create_new_service and not record.product_id and record.name:
+                try:
+                    service = record.lead_id._create_service_from_residue(record)
+                    record.product_id = service.id
+                except Exception as e:
+                    _logger.warning(f"Error al crear servicio: {str(e)}")
+
+            self._create_or_update_packaging_v19(record)
         
         return result

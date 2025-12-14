@@ -45,39 +45,36 @@
             <field name="residue_line_ids" nolabel="1">
               <list editable="bottom">
                 <!-- Checkbox para identificar si es nuevo -->
-                <field name="create_new_service" string="Nuevo"  width="60px"/>
-                <field name="name" string="Nombre"/>
+                <field name="create_new_service" string="Nuevo"/>
                 
                 <!-- Campo para seleccionar servicio existente (visible cuando NO es nuevo) -->
                 <field name="existing_service_id"
-                       string="Existente"
+                       string="Servicio Existente"
                        domain="[('sale_ok','=',True), ('type','=','service')]"
                        options="{'no_create': True}"
                        optional="show"/>
                 
                 <!-- Campos SIEMPRE EDITABLES -->
-               
+                <field name="name" string="Nombre"/>
                 <field name="residue_type" string="Tipo"/>
-                <field name="plan_manejo" string="Manejo"/>
+                <field name="plan_manejo" string="Plan de Manejo"/>
+                <field name="capacity" string="Capacidad"/>
+                <field name="weight_kg" string="Peso (kg)"/>
+                <field name="volume" string="Unidades"/>
+                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
+                <field name="uom_id" string="UoM Base" optional="hide"/>
+                
                 <!-- NUEVO: Campo de texto para nombre del embalaje (Crear nuevo) -->
-                <field name="packaging_name" string="Nuevo Embalaje" optional="show"/>
+                <field name="packaging_name" string="Crear Nuevo Embalaje" optional="show"/>
                 
                 <!-- Embalaje ID (Seleccionar existente) - AHORA EDITABLE -->
                 <field name="packaging_id" 
                        string="Seleccionar Embalaje" 
                        options="{'no_create': True}"
                        optional="show"/>
-                <field name="capacity" string="Capacidad"/>
-                <field name="weight_kg" string="Peso(kg)"/>
-                <field name="volume" string="Unidades"
-                />
-                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
-                <field name="uom_id" string="UoM" optional="hide"/>
-                
-               
                 
                 <!-- Servicio asociado (solo lectura) -->
-                <field name="product_id" string="Servicio" readonly="1" optional="hide"/>
+                <field name="product_id" string="Servicio" readonly="1" optional="show"/>
                 
                 <button name="%(product.product_template_action)d"
                         type="action"

@@ -166,7 +166,6 @@ class CrmLead(models.Model):
 
     def _create_service_from_residue(self, residue):
         """Crear un producto de tipo servicio desde un residue"""
-        # Obtener categoría para servicios de residuos (o crear una)
         category = self.env['product.category'].search([
             ('name', 'ilike', 'servicios de residuos')
         ], limit=1)
@@ -176,7 +175,6 @@ class CrmLead(models.Model):
                 'name': 'Servicios de Residuos',
             })
 
-        # Crear el producto/servicio
         service_name = f"{residue.name}"
         
         return self.env['product.product'].create({
@@ -272,24 +270,24 @@ class CrmLeadResidue(models.Model):
         string="Nombre del Embalaje",
         help="Escribe el nombre del embalaje y se creará automáticamente al guardar"
     )
-    
-    # -------------------------------------------------------------------------
-    # CORRECCIÓN ODOO 19:
-    # product.packaging fue eliminado. Usamos uom.uom que ahora gestiona los empaques.
-    # -------------------------------------------------------------------------
-    packaging_id = fields.Many2one(
-        'uom.uom', 
-        string="Embalaje Creado",
-        readonly=True,
-        help="Embalaje creado automáticamente (UoM tipo Empaque)"
-    )
-    
+
     # Servicio asociado (solo lectura)
     product_id = fields.Many2one(
         'product.product', 
         string="Servicio Asociado",
         readonly=True,
         help="Producto/servicio creado o asociado a partir de este residuo"
+    )
+
+    # -------------------------------------------------------------------------
+    # CORRECCIÓN: Eliminado campo product_uom_category_id porque no existe category_id
+    # y eliminado el domain que causaba el error.
+    # -------------------------------------------------------------------------
+    packaging_id = fields.Many2one(
+        'uom.uom', 
+        string="Embalaje (UoM)",
+        readonly=True,
+        help="Embalaje creado como una Unidad de Medida mayor"
     )
     
     @api.depends('volume', 'weight_kg')
@@ -331,15 +329,12 @@ class CrmLeadResidue(models.Model):
             self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
             
             # -----------------------------------------------------------------
-            # CORRECCIÓN ODOO 19: Buscamos en uom.uom en lugar de product.packaging
+            # CORRECCIÓN: Eliminada búsqueda por category_id
             # -----------------------------------------------------------------
-            packagings = self.env['uom.uom'].search([
-                ('product_id', '=', service.id)
-            ])
-            
-            if packagings:
-                self.packaging_id = packagings[0].id
-                self.packaging_name = packagings[0].name
+            # Si quieres sugerir un packaging, podrías buscar por relative_uom_id
+            # pero para evitar errores, lo dejamos vacío o simple por ahora.
+            self.packaging_id = False
+            self.packaging_name = False
             
             # Intentar extraer información de la descripción
             if service.default_code:
@@ -394,31 +389,44 @@ class CrmLeadResidue(models.Model):
                     raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
     
     def _create_or_update_packaging_v19(self, record):
-        """Helper para crear/actualizar empaque (ahora UoM) en Odoo 19"""
+        """
+        Helper para crear/actualizar empaque usando uom.uom.
+        NOTA: En Odoo 19 (tu versión) NO usamos category_id.
+        """
         if record.packaging_name and record.product_id and not record.packaging_id:
             try:
-                # En Odoo 19, creamos un UoM específico linkeado al producto
-                # Debemos asegurar que el UoM tenga la misma categoría que la unidad base del producto
-                category = record.product_id.uom_id.category_id
+                # Buscamos si ya existe una UoM con ese nombre.
+                # Al no tener category_id, solo buscamos por nombre y quizás related_uom_id si quisiéramos ser estrictos
+                domain = [('name', '=', record.packaging_name)]
                 
-                if category:
-                    packaging_uom = self.env['uom.uom'].create({
+                # Intentamos filtrar por la misma unidad base si existe campo relative_uom_id
+                if 'relative_uom_id' in self.env['uom.uom']._fields and record.product_id.uom_id:
+                    domain.append(('relative_uom_id', '=', record.product_id.uom_id.id))
+                
+                existing = self.env['uom.uom'].search(domain, limit=1)
+
+                if existing:
+                    record.packaging_id = existing.id
+                else:
+                    # Preparamos valores para crear
+                    vals = {
                         'name': record.packaging_name,
-                        'category_id': category.id,
-                        'uom_type': 'bigger', # Empaque suele ser mayor que la unidad
-                        'ratio': record.volume or 1.0, # ratio reemplaza a factor en esta lógica
-                        'product_id': record.product_id.id,
+                        'uom_type': 'bigger',
+                        'ratio': record.volume or 1.0, 
                         'active': True,
-                    })
-                    record.packaging_id = packaging_uom.id
+                    }
+                    
+                    # Si el entorno soporta jerarquía de unidades (Odoo 19 nuevo), enlazamos
+                    if 'relative_uom_id' in self.env['uom.uom']._fields and record.product_id.uom_id:
+                        vals['relative_uom_id'] = record.product_id.uom_id.id
+                        
+                    new_uom = self.env['uom.uom'].create(vals)
+                    record.packaging_id = new_uom.id
             except Exception as e:
-                _logger.warning(f"Error al crear embalaje (UoM) en Odoo 19: {str(e)}")
+                _logger.warning(f"Error al crear embalaje (UoM): {str(e)}")
 
     @api.model_create_multi
     def create(self, vals_list):
-        """
-        Crear servicio y embalaje si es necesario
-        """
         uom_unit = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
         for vals in vals_list:
             if not vals.get('uom_id') and uom_unit:
@@ -427,7 +435,6 @@ class CrmLeadResidue(models.Model):
         records = super().create(vals_list)
         
         for record in records:
-            # PASO 1: Crear o asignar producto
             if not record.create_new_service and record.existing_service_id:
                 record.product_id = record.existing_service_id.id
                 
@@ -438,19 +445,13 @@ class CrmLeadResidue(models.Model):
                 except Exception as e:
                     _logger.warning(f"Error al crear servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
             self._create_or_update_packaging_v19(record)
         
         return records
     
     def write(self, vals):
-        """
-        Actualizar servicio y crear embalaje si es necesario
-        """
         result = super().write(vals)
-        
         for record in self:
-            # PASO 1: Actualizar o crear producto
             if 'existing_service_id' in vals and not record.create_new_service and record.existing_service_id:
                 record.product_id = record.existing_service_id.id
             
@@ -476,7 +477,6 @@ Unidades: {record.volume} {record.uom_id.name if record.uom_id else ''}""",
                     except Exception as e:
                         _logger.warning(f"Error al actualizar servicio: {str(e)}")
             
-            # PASO 2: Crear embalaje (Adaptado a Odoo 19)
             if 'packaging_name' in vals:
                  self._create_or_update_packaging_v19(record)
         
