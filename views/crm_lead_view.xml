@@ -7,6 +7,87 @@
 
       <xpath expr="//notebook" position="inside">
 
+        <!-- Página de Servicios - UNA SOLA LISTA -->
+        <page string="Gestión de Servicio" name="residuos">
+          <separator string="Listado de Servicios y Residuos"/>
+          
+          <group>
+            <field name="residue_line_ids" nolabel="1">
+              <!-- Usamos list (sintaxis v19) editable bottom -->
+              <list editable="bottom" decoration-info="create_new_service==True">
+                
+                <!-- 1. Lógica SERVICIO -->
+                <field name="create_new_service" 
+                       string="Nuevo" 
+                       widget="boolean_toggle" 
+                       width="60px"/>
+                
+                <!-- Opción A: Escribir nombre (Visible si Nuevo=True) -->
+                <field name="name" 
+                       string="Nombre"
+                       invisible="not create_new_service"
+                       required="create_new_service"
+                       placeholder="Nombre del nuevo residuo..."
+                       whidth=80px
+                       />
+                
+                <!-- Opción B: Seleccionar existente (Visible si Nuevo=False) -->
+                <field name="existing_service_id"
+                       string="Existente"
+                       domain="[('sale_ok','=',True), ('type','=','service')]"
+                       options="{'no_create': True, 'no_open': True}"
+                       invisible="create_new_service"
+                       required="not create_new_service"
+                       placeholder="Buscar servicio..." whidth=80px/>
+                
+                <!-- Campos Informativos -->
+                <field name="residue_type" string="Tipo" optional="show"/>
+                <field name="plan_manejo" string="Manejo" optional="show"/>
+
+                <!-- 2. Lógica EMBALAJE -->
+                <field name="create_new_packaging" 
+                       string="Nuevo Emb." 
+                       widget="boolean_toggle"
+                       width="90px"/>
+                
+                <!-- Opción A: Escribir nuevo embalaje (Visible si NuevoEmb=True) -->
+                <field name="packaging_name" 
+                       string="Nombre Embalaje" 
+                       invisible="not create_new_packaging"
+                       required="create_new_packaging"
+                       placeholder="Ej: Tambor 200L"
+                       width="80px"/>
+                
+                <!-- Opción B: Seleccionar existente (Visible si NuevoEmb=False) -->
+                <field name="packaging_id" 
+                       string="Emb. Existente" 
+                       options="{'no_create': True}"
+                       invisible="create_new_packaging"
+                       required="not create_new_packaging"
+                       placeholder="Seleccionar..."
+                       whidth=80px/>
+
+                <!-- Medidas y Totales -->
+                <field name="capacity" string="Capacidad"/>
+                <field name="weight_kg" string="Peso(kg)"/>
+                <field name="volume" string="Unidades"/>
+                <field name="weight_per_unit" string="Kg/Unidad" readonly="1" optional="hide"/>
+                <field name="uom_id" string="UoM" optional="hide"/>
+                
+                <!-- Servicio asociado (Oculto en lista, útil para botón) -->
+                <field name="product_id" column_invisible="True"/>
+                
+                <button name="%(product.product_template_action)d"
+                        type="action"
+                        icon="fa-external-link"
+                        title="Ver servicio"
+                        context="{'search_default_id': product_id}"
+                        invisible="not product_id"/>
+              </list>
+            </field>
+          </group>
+        </page>
+
         <!-- Página de Validación de Residuos -->
         <page string="Validación de Residuos" name="residue_validation">
           <group string="Validación de Residuo Nuevo">
@@ -37,83 +118,7 @@
           <field name="show_visita_alert" invisible="1"/>
         </page>
 
-        <!-- Página de Servicios - UNA SOLA LISTA -->
-        <page string="Gestión de Servicio" name="residuos">
-          <separator string="Listado de Servicios y Residuos"/>
-          
-          <group>
-            <field name="residue_line_ids" nolabel="1">
-              <!-- Usamos list (sintaxis v19) editable bottom -->
-              <list editable="bottom" decoration-info="create_new_service==True">
-                
-                <!-- 1. Lógica SERVICIO -->
-                <field name="create_new_service" 
-                       string="Nuevo" 
-                       widget="boolean_toggle" 
-                       width="60px"/>
-                
-                <!-- Opción A: Escribir nombre (Visible si Nuevo=True) -->
-                <field name="name" 
-                       string="Nombre Servicio"
-                       invisible="not create_new_service"
-                       required="create_new_service"
-                       placeholder="Nombre del nuevo residuo..."/>
-                
-                <!-- Opción B: Seleccionar existente (Visible si Nuevo=False) -->
-                <field name="existing_service_id"
-                       string="Servicio Existente"
-                       domain="[('sale_ok','=',True), ('type','=','service')]"
-                       options="{'no_create': True, 'no_open': True}"
-                       invisible="create_new_service"
-                       required="not create_new_service"
-                       placeholder="Buscar servicio..."/>
-                
-                <!-- Campos Informativos -->
-                <field name="residue_type" string="Tipo" optional="show"/>
-                <field name="plan_manejo" string="Manejo" optional="show"/>
-
-                <!-- 2. Lógica EMBALAJE -->
-                <field name="create_new_packaging" 
-                       string="Nuevo Emb." 
-                       widget="boolean_toggle"
-                       width="90px"/>
-                
-                <!-- Opción A: Escribir nuevo embalaje (Visible si NuevoEmb=True) -->
-                <field name="packaging_name" 
-                       string="Nombre Embalaje" 
-                       invisible="not create_new_packaging"
-                       required="create_new_packaging"
-                       placeholder="Ej: Tambor 200L"/>
-                
-                <!-- Opción B: Seleccionar existente (Visible si NuevoEmb=False) -->
-                <field name="packaging_id" 
-                       string="Embalaje Existente" 
-                       options="{'no_create': True}"
-                       invisible="create_new_packaging"
-                       required="not create_new_packaging"
-                       placeholder="Seleccionar..."/>
-
-                <!-- Medidas y Totales -->
-                <field name="capacity" string="Capacidad"/>
-                <field name="weight_kg" string="Peso(kg)"/>
-                <field name="volume" string="Unidades"/>
-                <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
-                <field name="uom_id" string="UoM" optional="hide"/>
-                
-                <!-- Servicio asociado (Oculto en lista, útil para botón) -->
-                <field name="product_id" column_invisible="True"/>
-                
-                <button name="%(product.product_template_action)d"
-                        type="action"
-                        icon="fa-external-link"
-                        title="Ver servicio"
-                        context="{'search_default_id': product_id}"
-                        invisible="not product_id"/>
-              </list>
-            </field>
-          </group>
-        </page>
-
+        
         <!-- Página de Información del Servicio -->
         <page string="Información del Servicio" name="service_info">
           <group>
