@@ -43,41 +43,65 @@
           
           <group>
             <field name="residue_line_ids" nolabel="1">
-              <list editable="bottom">
-                <!-- Checkbox para identificar si es nuevo -->
-                <field name="create_new_service" string="Nuevo"  width="60px"/>
-                <field name="name" string="Nombre"/>
+              <!-- Usamos list (sintaxis v19) editable bottom -->
+              <list editable="bottom" decoration-info="create_new_service==True">
                 
-                <!-- Campo para seleccionar servicio existente (visible cuando NO es nuevo) -->
+                <!-- 1. Lógica SERVICIO -->
+                <field name="create_new_service" 
+                       string="Nuevo" 
+                       widget="boolean_toggle" 
+                       width="60px"/>
+                
+                <!-- Opción A: Escribir nombre (Visible si Nuevo=True) -->
+                <field name="name" 
+                       string="Nombre Servicio"
+                       invisible="not create_new_service"
+                       required="create_new_service"
+                       placeholder="Nombre del nuevo residuo..."/>
+                
+                <!-- Opción B: Seleccionar existente (Visible si Nuevo=False) -->
                 <field name="existing_service_id"
-                       string="Existente"
+                       string="Servicio Existente"
                        domain="[('sale_ok','=',True), ('type','=','service')]"
-                       options="{'no_create': True}"
-                       optional="show"/>
+                       options="{'no_create': True, 'no_open': True}"
+                       invisible="create_new_service"
+                       required="not create_new_service"
+                       placeholder="Buscar servicio..."/>
                 
-                <!-- Campos SIEMPRE EDITABLES -->
-               
-                <field name="residue_type" string="Tipo"/>
-                <field name="plan_manejo" string="Manejo"/>
-                <!-- NUEVO: Campo de texto para nombre del embalaje (Crear nuevo) -->
-                <field name="packaging_name" string="Nuevo Embalaje" optional="show"/>
+                <!-- Campos Informativos -->
+                <field name="residue_type" string="Tipo" optional="show"/>
+                <field name="plan_manejo" string="Manejo" optional="show"/>
+
+                <!-- 2. Lógica EMBALAJE -->
+                <field name="create_new_packaging" 
+                       string="Nuevo Emb." 
+                       widget="boolean_toggle"
+                       width="90px"/>
                 
-                <!-- Embalaje ID (Seleccionar existente) - AHORA EDITABLE -->
+                <!-- Opción A: Escribir nuevo embalaje (Visible si NuevoEmb=True) -->
+                <field name="packaging_name" 
+                       string="Nombre Embalaje" 
+                       invisible="not create_new_packaging"
+                       required="create_new_packaging"
+                       placeholder="Ej: Tambor 200L"/>
+                
+                <!-- Opción B: Seleccionar existente (Visible si NuevoEmb=False) -->
                 <field name="packaging_id" 
-                       string="Seleccionar Embalaje" 
+                       string="Embalaje Existente" 
                        options="{'no_create': True}"
-                       optional="show"/>
+                       invisible="create_new_packaging"
+                       required="not create_new_packaging"
+                       placeholder="Seleccionar..."/>
+
+                <!-- Medidas y Totales -->
                 <field name="capacity" string="Capacidad"/>
                 <field name="weight_kg" string="Peso(kg)"/>
-                <field name="volume" string="Unidades"
-                />
+                <field name="volume" string="Unidades"/>
                 <field name="weight_per_unit" string="Kg/Unidad" readonly="1"/>
                 <field name="uom_id" string="UoM" optional="hide"/>
                 
-               
-                
-                <!-- Servicio asociado (solo lectura) -->
-                <field name="product_id" string="Servicio" readonly="1" optional="hide"/>
+                <!-- Servicio asociado (Oculto en lista, útil para botón) -->
+                <field name="product_id" column_invisible="True"/>
                 
                 <button name="%(product.product_template_action)d"
                         type="action"
@@ -86,52 +110,6 @@
                         context="{'search_default_id': product_id}"
                         invisible="not product_id"/>
               </list>
-
-              <form>
-                <group>
-                  <group string="Tipo de Servicio">
-                    <field name="create_new_service"/>
-                    
-                    <!-- Selección de servicio existente -->
-                    <field name="existing_service_id"
-                           string="Servicio Existente"
-                           domain="[('sale_ok','=',True), ('type','=','service')]"
-                           options="{'no_create': True}"
-                           placeholder="Buscar servicio existente..."
-                           invisible="create_new_service"
-                           required="not create_new_service"/>
-                  </group>
-                  
-                  <group string="Información del Servicio/Residuo">
-                    <field name="name" required="1"/>
-                    <field name="residue_type"/>
-                    <field name="plan_manejo"/>
-                    <field name="product_id" readonly="1"/>
-                  </group>
-                </group>
-                
-                <group string="Cantidades, Capacidad y Peso">
-                  <group>
-                    <field name="capacity"/>
-                    <field name="weight_kg"/>
-                    <field name="volume"/>
-                    <field name="weight_per_unit" readonly="1"/>
-                  </group>
-                  <group>
-                    <field name="uom_id"/>
-                  </group>
-                </group>
-                
-                <group string="Gestión de Embalaje">
-                  <group>
-                     <field name="packaging_name" 
-                            placeholder="Escribe aquí para CREAR uno nuevo (ej: Tambor 200L)"/>
-                     
-                     <field name="packaging_id" 
-                            placeholder="O selecciona uno EXISTENTE aquí..."/>
-                  </group>
-                </group>
-              </form>
             </field>
           </group>
         </page>

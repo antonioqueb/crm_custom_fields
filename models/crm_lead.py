@@ -163,14 +163,15 @@ class CrmLeadResidue(models.Model):
 
     lead_id = fields.Many2one('crm.lead', string="Lead/Oportunidad", required=True, ondelete='cascade')
     
-    # Campo para decidir si es nuevo o existente
+    # -------------------------------------------------------------------------
+    # LÓGICA DE SERVICIO / RESIDUO
+    # -------------------------------------------------------------------------
     create_new_service = fields.Boolean(
-        string="¿Es Nuevo?",
+        string="¿Nuevo Servicio?",
         default=False,
-        help="Marca si es un servicio NUEVO que se va a crear. Desmarca si vas a seleccionar un servicio EXISTENTE."
+        help="Marca si es un servicio NUEVO. Desmarca para seleccionar uno existente."
     )
     
-    # Campo para seleccionar servicio existente
     existing_service_id = fields.Many2one(
         'product.product',
         string="Servicio Existente",
@@ -179,16 +180,16 @@ class CrmLeadResidue(models.Model):
     )
     
     name = fields.Char(
-        string="Nombre del Residuo/Servicio",
+        string="Nombre del Residuo",
         required=False,
-        help="Nombre descriptivo del residuo o servicio"
+        help="Nombre descriptivo para crear un nuevo servicio"
     )
     
     residue_type = fields.Selection(
         selection=[('rsu', 'RSU'), ('rme', 'RME'), ('rp', 'RP')],
         string="Tipo de manejo",
         default='rsu',
-        help="Clasificación oficial del residuo: RSU (Sólido Urbano), RME (Manejo Especial) o RP (Peligroso)."
+        help="Clasificación oficial del residuo."
     )
     
     plan_manejo = fields.Selection([
@@ -202,25 +203,46 @@ class CrmLeadResidue(models.Model):
         ('destruccion_fiscal', 'Destrucción Fiscal'),
     ], string="Plan de Manejo")
     
-    capacity = fields.Char(string="Capacidad", help="Capacidad del contenedor (ej: 100 L, 200 Kg, 50 CM³)")
+    # -------------------------------------------------------------------------
+    # LÓGICA DE EMBALAJE (CORREGIDA)
+    # -------------------------------------------------------------------------
+    create_new_packaging = fields.Boolean(
+        string="¿Nuevo Embalaje?",
+        default=False,
+        help="Activa para crear un nuevo tipo de embalaje."
+    )
+
+    packaging_name = fields.Char(
+        string="Nombre Nuevo Embalaje",
+        help="Escribe el nombre para crear uno nuevo."
+    )
+
+    packaging_id = fields.Many2one(
+        'uom.uom', 
+        string="Embalaje Existente",
+        readonly=False, 
+        help="Selecciona un embalaje existente."
+    )
+    
+    # -------------------------------------------------------------------------
+    # CAPACIDADES Y MEDIDAS
+    # -------------------------------------------------------------------------
+    capacity = fields.Char(string="Capacidad", help="Capacidad del contenedor (ej: 100 L)")
     
     weight_kg = fields.Float(
         string="Peso Total Estimado (kg)",
-        default=0.0,
-        help="Peso total estimado de todos los contenedores juntos"
+        default=0.0
     )
     
     volume = fields.Float(
-        string="Número de Unidades/Contenedores",
-        default=1.0,
-        help="Cantidad de contenedores o unidades"
+        string="Número de Unidades",
+        default=1.0
     )
     
     weight_per_unit = fields.Float(
         string="Peso por Unidad (kg)",
         compute="_compute_weight_per_unit",
-        store=True,
-        help="Peso promedio por unidad (calculado automáticamente)"
+        store=True
     )
     
     uom_id = fields.Many2one(
@@ -229,13 +251,6 @@ class CrmLeadResidue(models.Model):
         default=lambda self: self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
     )
     
-    # NUEVO: Campo de texto para nombre del embalaje
-    packaging_name = fields.Char(
-        string="Nombre del Embalaje",
-        help="Escribe el nombre para crear uno nuevo. Si dejas esto vacío, selecciona uno existente abajo."
-    )
-
-    # Servicio asociado (solo lectura)
     product_id = fields.Many2one(
         'product.product', 
         string="Servicio Asociado",
@@ -244,16 +259,9 @@ class CrmLeadResidue(models.Model):
     )
 
     # -------------------------------------------------------------------------
-    # CORRECCIÓN: Eliminado domain que causaba el error 'uom_type'
+    # MÉTODOS COMPUTE Y ONCHANGE
     # -------------------------------------------------------------------------
-    packaging_id = fields.Many2one(
-        'uom.uom', 
-        string="Embalaje (Seleccionar o Creado)",
-        readonly=False, 
-        # Domain eliminado para evitar error de campo inexistente uom_type
-        help="Selecciona un embalaje existente o se llenará automáticamente al crear uno nuevo."
-    )
-    
+
     @api.depends('volume', 'weight_kg')
     def _compute_weight_per_unit(self):
         """Calcular peso promedio por unidad"""
@@ -272,19 +280,28 @@ class CrmLeadResidue(models.Model):
     
     @api.onchange('create_new_service')
     def _onchange_create_new_service(self):
-        """Limpiar campos según la opción seleccionada"""
+        """Limpiar campos de servicio según el switch"""
         if self.create_new_service:
             self.existing_service_id = False
             self.product_id = False
             if not self.uom_id:
                 self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
         else:
+            # Si desmarca nuevo, se limpia el servicio asociado para obligar a seleccionar
             if not self.existing_service_id:
                 self.product_id = False
 
+    @api.onchange('create_new_packaging')
+    def _onchange_create_new_packaging(self):
+        """Limpiar campos de embalaje según el switch"""
+        if self.create_new_packaging:
+            self.packaging_id = False
+        else:
+            self.packaging_name = False
+
     @api.onchange('existing_service_id')
     def _onchange_existing_service_id(self):
-        """Cuando selecciona un servicio existente, cargar su información"""
+        """Cargar información al seleccionar servicio existente"""
         if self.existing_service_id and not self.create_new_service:
             service = self.existing_service_id
             
@@ -292,7 +309,8 @@ class CrmLeadResidue(models.Model):
             self.name = service.name
             self.uom_id = self.env.ref('uom.product_uom_unit', raise_if_not_found=False)
             
-            # Limpiamos selección previa
+            # Limpiamos selección previa de embalaje
+            self.create_new_packaging = False
             self.packaging_id = False
             self.packaging_name = False
             
@@ -337,54 +355,67 @@ class CrmLeadResidue(models.Model):
                     self.plan_manejo = value
                     break
     
+    # -------------------------------------------------------------------------
+    # VALIDACIONES Y CREACIÓN
+    # -------------------------------------------------------------------------
+
     @api.constrains('create_new_service', 'name', 'existing_service_id')
-    def _check_required_fields(self):
-        """Validar campos requeridos según el modo"""
+    def _check_service_fields(self):
+        """Validar campos requeridos para Servicio"""
         for record in self:
-            if record.create_new_service:
-                if not record.name:
-                    raise ValidationError("El nombre del residuo es obligatorio cuando se crea un nuevo servicio.")
-            else:
-                if not record.existing_service_id:
-                    raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Es Nuevo?' para crear uno.")
-    
+            if record.create_new_service and not record.name:
+                raise ValidationError("El nombre del residuo es obligatorio cuando se crea un nuevo servicio.")
+            if not record.create_new_service and not record.existing_service_id:
+                raise ValidationError("Debe seleccionar un servicio existente o marcar '¿Nuevo?'")
+
+    @api.constrains('create_new_packaging', 'packaging_name', 'packaging_id')
+    def _check_packaging_fields(self):
+        """Validar campos requeridos para Embalaje"""
+        for record in self:
+            # Solo validamos si hay intención de llenar la línea (ej. si hay peso o volumen)
+            # O si explícitamente se usó alguno de los campos de embalaje
+            if record.create_new_packaging or record.packaging_id:
+                if record.create_new_packaging and not record.packaging_name:
+                    raise ValidationError("Debe escribir un nombre para el nuevo embalaje.")
+                if not record.create_new_packaging and not record.packaging_id:
+                     raise ValidationError("Debe seleccionar un embalaje existente o marcar '¿Nuevo?'")
+
     def _create_or_update_packaging_v19(self, record):
         """
         Lógica para crear UoM.
-        CORRECCIÓN: Eliminada referencia a uom_type y uso de factor en vez de ratio.
+        Se ejecuta solo si create_new_packaging es True.
         """
-        if record.packaging_id and not record.packaging_name:
+        if not record.create_new_packaging or not record.packaging_name:
             return
 
-        if record.packaging_name and not record.packaging_id:
-            try:
-                domain = [('name', '=', record.packaging_name)]
-                existing = self.env['uom.uom'].search(domain, limit=1)
+        # Evitar crear si ya existe con el mismo nombre
+        domain = [('name', '=', record.packaging_name)]
+        existing = self.env['uom.uom'].search(domain, limit=1)
 
-                if existing:
-                    record.packaging_id = existing.id
-                else:
-                    # CORREGIDO: Eliminado uom_type
-                    # Calculamos el factor (inverso de la cantidad). Ej: Caja de 10 -> factor = 0.1
-                    qty = record.volume or 1.0
-                    factor = 1.0 / qty if qty != 0 else 1.0
+        if existing:
+            record.packaging_id = existing.id
+        else:
+            try:
+                # Calculamos el factor (inverso de la cantidad)
+                qty = record.volume or 1.0
+                factor = 1.0 / qty if qty != 0 else 1.0
+                
+                vals = {
+                    'name': record.packaging_name,
+                    'factor': factor,
+                    'active': True,
+                    # Intentamos asignar categoría por defecto (Unidad)
+                    'category_id': self.env.ref('uom.product_uom_categ_unit').id
+                }
+                
+                if 'relative_uom_id' in self.env['uom.uom']._fields and record.uom_id:
+                    vals['relative_uom_id'] = record.uom_id.id
                     
-                    vals = {
-                        'name': record.packaging_name,
-                        # 'uom_type': 'bigger',  <-- ELIMINADO
-                        'factor': factor,        # <-- Usamos factor (campo estándar)
-                        'active': True,
-                    }
-                    
-                    # Intentamos enlazar (opcional, si el campo existe)
-                    if 'relative_uom_id' in self.env['uom.uom']._fields and record.uom_id:
-                        vals['relative_uom_id'] = record.uom_id.id
-                        
-                    new_uom = self.env['uom.uom'].create(vals)
-                    record.packaging_id = new_uom.id
-                    
+                new_uom = self.env['uom.uom'].create(vals)
+                record.packaging_id = new_uom.id
+                
             except Exception as e:
-                _logger.warning(f"Error al crear/buscar embalaje (UoM): {str(e)}")
+                _logger.warning(f"Error al crear embalaje (UoM): {str(e)}")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -396,6 +427,7 @@ class CrmLeadResidue(models.Model):
         records = super().create(vals_list)
         
         for record in records:
+            # 1. Gestión del Servicio
             if not record.create_new_service and record.existing_service_id:
                 record.product_id = record.existing_service_id.id
             elif record.create_new_service and record.name:
@@ -405,6 +437,7 @@ class CrmLeadResidue(models.Model):
                 except Exception as e:
                     _logger.warning(f"Error al crear servicio: {str(e)}")
             
+            # 2. Gestión del Embalaje
             self._create_or_update_packaging_v19(record)
         
         return records
@@ -412,6 +445,7 @@ class CrmLeadResidue(models.Model):
     def write(self, vals):
         result = super().write(vals)
         for record in self:
+            # 1. Gestión del Servicio
             if 'existing_service_id' in vals:
                 if not record.create_new_service and record.existing_service_id:
                     record.product_id = record.existing_service_id.id
@@ -423,6 +457,8 @@ class CrmLeadResidue(models.Model):
                 except Exception as e:
                     _logger.warning(f"Error al crear servicio: {str(e)}")
 
-            self._create_or_update_packaging_v19(record)
+            # 2. Gestión del Embalaje
+            if 'create_new_packaging' in vals or 'packaging_name' in vals:
+                self._create_or_update_packaging_v19(record)
         
         return result
