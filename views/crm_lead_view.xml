@@ -9,7 +9,7 @@
 
         <!-- Página de Servicios - UNA SOLA LISTA -->
         <page string="Gestión de Servicio" name="residuos">
-          <separator string="Listado de Servicios y Residuos"/>
+          <separator string="Listado de Servicios/Residuos"/>
           
           <group>
             <field name="residue_line_ids" nolabel="1">
@@ -28,7 +28,7 @@
                        invisible="not create_new_service"
                        required="create_new_service"
                        placeholder="Nombre del nuevo residuo..."
-                       whidth=80px
+                       whidth="80px"
                        />
                 
                 <!-- Opción B: Seleccionar existente (Visible si Nuevo=False) -->
@@ -38,7 +38,7 @@
                        options="{'no_create': True, 'no_open': True}"
                        invisible="create_new_service"
                        required="not create_new_service"
-                       placeholder="Buscar servicio..." whidth=80px/>
+                       placeholder="Buscar servicio..." whidth="80px"/>
                 
                 <!-- Campos Informativos -->
                 <field name="residue_type" string="Tipo" optional="show"/>
@@ -65,7 +65,7 @@
                        invisible="create_new_packaging"
                        required="not create_new_packaging"
                        placeholder="Seleccionar..."
-                       whidth=80px/>
+                       whidth="80px"/>
 
                 <!-- Medidas y Totales -->
                 <field name="capacity" string="Capacidad"/>
@@ -123,7 +123,23 @@
         <page string="Información del Servicio" name="service_info">
           <group>
             <group string="Detalles del Servicio">
-              <field name="pickup_location"/>
+              
+              <!-- CAMBIO AQUÍ -->
+              <field name="pickup_location_id"
+                     widget="res_partner_many2one"
+                     context="{
+                         'default_parent_id': partner_id,
+                         'default_type': 'other',
+                         'show_address': 1
+                     }"
+                     domain="[('parent_id', '=', partner_id), ('type', '=', 'other')]"
+                     options="{'always_reload': True, 'no_quick_create': True}"
+                     placeholder="Seleccionar dirección de entrega..."
+                     invisible="not partner_id"
+              />
+              <!-- Nota: He puesto invisible="not partner_id" porque para crear una dirección hija, 
+                   primero necesitas haber seleccionado al Cliente (partner_id) en el encabezado del Lead -->
+
               <field name="service_frequency"/>
             </group>
           </group>
@@ -145,65 +161,83 @@
 
         <!-- Página de Información Operativa -->
         <page string="Información Operativa" name="operational_info">
-          <group>
-            <group string="Condiciones Operativas">
+          <group col="2">
+            <group string="Accesos y Restricciones">
               <field name="access_restrictions" widget="text"/>
+              <field name="special_handling_conditions" widget="text"/>
+            </group>
+
+            <group string="Operación y Logística">
               <field name="allowed_collection_schedules" widget="text"/>
               <field name="current_container_types" widget="text"/>
-              <field name="special_handling_conditions" widget="text"/>
               <field name="seasonality" widget="text"/>
             </group>
           </group>
         </page>
 
+
         <!-- Página de Información Regulatoria -->
         <page string="Información Regulatoria" name="regulatory_info">
-          <group>
+          <group col="2">
             <group string="Registros y Autorizaciones">
               <field name="waste_generator_registration"/>
               <field name="environmental_authorizations" widget="text"/>
             </group>
-            <group>
+
+            <group string="Certificaciones y Permisos">
               <field name="quality_certifications" widget="text"/>
               <field name="other_relevant_permits" widget="text"/>
             </group>
           </group>
         </page>
 
+
         <!-- Página de Competencia y Mercado -->
         <page string="Competencia y Mercado" name="competition_market">
-          <group>
+          <group col="2">
             <group string="Proveedor Actual">
               <field name="current_service_provider"/>
-              <field name="current_costs"/>
               <field name="current_provider_satisfaction"/>
+            </group>
+
+            <group string="Costos y Motivo de Cambio">
+              <field name="current_costs"/>
               <field name="reason_for_new_provider" widget="text"/>
             </group>
           </group>
         </page>
 
+
         <!-- Página de Requerimientos Especiales -->
         <page string="Requerimientos Especiales" name="special_requirements">
-          <group>
-            <group string="Requerimientos del Cliente">
+          <group col="2">
+            <group string="Documentación y Reporteo">
               <field name="specific_certificates_needed" widget="text"/>
               <field name="reporting_requirements" widget="text"/>
+            </group>
+
+            <group string="Prioridad y Presupuesto">
               <field name="service_urgency"/>
               <field name="estimated_budget"/>
             </group>
           </group>
         </page>
 
+
         <!-- Página de Seguimiento -->
         <page string="Seguimiento" name="seguimiento">
-          <group>
-            <group string="Gestión de Seguimiento">
+          <group col="2">
+            <group string="Próximo Contacto">
               <field name="next_contact_date"/>
               <field name="pending_actions" widget="text"/>
+            </group>
+
+            <group string="Notas de Conversación">
               <field name="conversation_notes" widget="text"/>
             </group>
           </group>
         </page>
+
 
       </xpath>
     </field>
