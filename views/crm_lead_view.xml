@@ -124,18 +124,17 @@
           <group>
             <group string="Detalles del Servicio">
               
-              <!-- CAMBIO AQUÍ -->
               <field name="pickup_location_id"
-                     widget="res_partner_many2one"
-                     context="{
-                         'default_parent_id': partner_id,
-                         'default_type': 'other',
-                         'show_address': 1
-                     }"
-                     domain="[('parent_id', '=', partner_id), ('type', '=', 'other')]"
-                     options="{'always_reload': True, 'no_quick_create': True}"
-                     placeholder="Seleccionar dirección de entrega..."
-                     invisible="not partner_id"
+                    widget="res_partner_many2one"
+                    context="{
+                        'default_parent_id': partner_id,
+                        'default_type': 'delivery',
+                        'show_address': 1
+                    }"
+                    domain="['|', ('parent_id', '=', partner_id), ('id', '=', partner_id)]"
+                    options="{'always_reload': True, 'no_quick_create': True}"
+                    placeholder="Seleccionar dirección de entrega..."
+                    invisible="not partner_id"
               />
               <!-- Nota: He puesto invisible="not partner_id" porque para crear una dirección hija, 
                    primero necesitas haber seleccionado al Cliente (partner_id) en el encabezado del Lead -->
