@@ -278,6 +278,8 @@ class CrmLeadResidue(models.Model):
 
     plan_manejo = fields.Selection([
         ('reciclaje', 'Reciclaje'),
+        ('aprovechamiento_energetico', 'Aprovechamiento Energético'),
+        ('relleno_sanitario', 'Relleno Sanitario'),
         ('coprocesamiento', 'Co-procesamiento'),
         ('tratamiento_fisicoquimico', 'Tratamiento Físico-Químico'),
         ('tratamiento_biologico', 'Tratamiento Biológico'),
