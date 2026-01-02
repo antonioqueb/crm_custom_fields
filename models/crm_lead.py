@@ -91,6 +91,13 @@ class CrmLead(models.Model):
     current_container_types = fields.Text(string="Tipo de Contenedores Actuales")
     special_handling_conditions = fields.Text(string="Condiciones Especiales de Manejo")
     seasonality = fields.Text(string="Estacionalidad")
+    final_destination_id = fields.Many2one(
+        'res.partner',
+        string="Destino final",
+        help="Seleccione el contacto/dirección o instalación donde se entregará el residuo tras la recolección.",
+        ondelete='set null'
+    )
+
 
     # INFORMACIÓN REGULATORIA
     waste_generator_registration = fields.Char(string="Registro como Generador de Residuos")
